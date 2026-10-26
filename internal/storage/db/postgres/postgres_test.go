@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 

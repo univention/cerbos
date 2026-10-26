@@ -30,7 +30,7 @@ require (
 	github.com/doug-martin/goqu/v9 v9.19.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/fatih/color v1.19.0
-	github.com/fergusstrange/embedded-postgres v1.34.0
+	github.com/fergusstrange/embedded-postgres/v2 v2.0.1
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gdamore/tcell/v2 v2.13.10
 	github.com/ghodss/yaml v1.0.0
@@ -212,7 +212,6 @@ require (
 	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -251,7 +250,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.15.0 // indirect
 	github.com/valyala/fastjson v1.6.10 // indirect
-	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

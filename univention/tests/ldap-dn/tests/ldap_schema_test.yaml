@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/TestSuite.schema.json
+
+name: Test LDAP schema from the globals
+description: ldapDN takes attribute type names, OIDs and matching rules from the ldapSchema global
+
+options:
+  strictEvaluation: true
+  globals:
+    ldapSchema:
+      unknownAttributeTypes: reject
+      attributeTypes:
+        - oid: 2.5.4.11
+          names: [ou, organizationalUnitName]
+          match: ignoreCase
+        - oid: 0.9.2342.19200300.100.1.25
+          names: [dc]
+          match: ignoreCase
+        - oid: 1.2.3.4
+          names: [customName, cuName]
+          match: ignoreCase
+        - oid: 1.2.3.5
+          names: [customExact]
+          match: exact
+
+principals:
+
+  custom_admin:
+    id: custom_admin
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+        - role: ouadmin
+          context: customName=Bremen,dc=base
+        - role: ouadmin
+          context: customExact=Hamburg,dc=base
+
+resources:
+
+  below_custom_alias:
+    id: below_custom_alias
+    kind: user
+    attr:
+      position: ou=users,cuName=bremen,dc=base
+
+  below_custom_oid:
+    id: below_custom_oid
+    kind: user
+    attr:
+      position: organizationalUnitName=Users,1.2.3.4=BREMEN,DC=Base
+
+  below_exact_same_case:
+    id: below_exact_same_case
+    kind: user
+    attr:
+      position: ou=users,customExact=Hamburg,dc=base
+
+  below_exact_other_case:
+    id: below_exact_other_case
+    kind: user
+    attr:
+      position: ou=users,customExact=hamburg,dc=base
+
+  unlisted_type:
+    id: unlisted_type
+    kind: user
+    attr:
+      position: cn=users,customName=bremen,dc=base
+
+tests:
+
+  - name: names, OIDs and matching rules of the schema apply
+    input:
+      principals:
+        - custom_admin
+      resources:
+        - below_custom_alias
+        - below_custom_oid
+        - below_exact_same_case
+      actions:
+        - modify_user
+    expected:
+      - principal: custom_admin
+        resource: below_custom_alias
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: custom_admin
+        resource: below_custom_oid
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: custom_admin
+        resource: below_exact_same_case
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: an exact attribute type keeps the case, and an unlisted type is rejected
+    input:
+      principals:
+        - custom_admin
+      resources:
+        - below_exact_other_case
+        - unlisted_type
+      actions:
+        - modify_user
+    expected:
+      - principal: custom_admin
+        resource: below_exact_other_case
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: custom_admin
+        resource: unlisted_type
+        actions:
+          modify_user: EFFECT_DENY

@@ -117,23 +117,31 @@ func TestLDAPSchemaFromGlobals(t *testing.T) {
 	}
 }
 
-// The attribute types with an EQUALITY rule other than caseIgnoreMatch
+// The attribute types of UCS with an EQUALITY rule other than caseIgnoreMatch,
+// as univention-generate-cerbos-ldap-schema emits them.
 func TestLDAPSchemaMatchingRules(t *testing.T) {
 	globals := map[string]any{customtypes.LDAPSchemaGlobal: map[string]any{
 		"unknownAttributeTypes": "reject",
 		"attributeTypes": []any{
 			map[string]any{"oid": "2.5.4.3", "names": []any{"cn", "commonName"}, "match": "ignoreCase"},
 			map[string]any{"oid": "0.9.2342.19200300.100.1.25", "names": []any{"dc", "domainComponent"}, "match": "ignoreCase"},
+			map[string]any{"oid": "1.3.6.1.4.1.10176.4204.1.1", "names": []any{"univentionAppID"}, "match": "exact"},
 			map[string]any{"oid": "1.3.6.1.4.1.5322.10.1.1", "names": []any{"krb5PrincipalName"}, "match": "octets"},
+			map[string]any{"oid": "1.3.6.1.4.1.10176.1003.3", "names": []any{"univentionObjectIdentifier"}, "match": "ignoreCase"},
 		},
 	}}
 
 	for _, expr := range []string{
+		`ldapDN("univentionAppID=Foo,dc=com") != ldapDN("UNIVENTIONAPPID=foo,dc=com")`,
+		`ldapDN("univentionAppID=Foo,dc=com") == ldapDN("UNIVENTIONAPPID=Foo,DC=COM")`,
+		`ldapDN("univentionAppID=Foo,dc=com") == ldapDN("1.3.6.1.4.1.10176.4204.1.1=Foo,dc=com")`,
+		`ldapDN("univentionAppID=Foo,dc=com") != ldapDN("1.3.6.1.4.1.10176.4204.1.1=foo,dc=com")`,
 		`ldapDN("krb5PrincipalName=host/ucs.example.com@EXAMPLE.COM,cn=kerberos,dc=com") == ldapDN("KRB5PRINCIPALNAME=host/ucs.example.com@EXAMPLE.COM,CN=Kerberos,dc=com")`,
 		`ldapDN("krb5PrincipalName=host/ucs.example.com@EXAMPLE.COM,cn=kerberos,dc=com") == ldapDN("1.3.6.1.4.1.5322.10.1.1=host/ucs.example.com@EXAMPLE.COM,cn=kerberos,dc=com")`,
 		`ldapDN("krb5PrincipalName=host/ucs.example.com@EXAMPLE.COM,cn=kerberos,dc=com") != ldapDN("krb5PrincipalName=host/ucs.example.com@example.com,cn=kerberos,dc=com")`,
 		`ldapDN("krb5PrincipalName=a  b,dc=com") != ldapDN("krb5PrincipalName=a b,dc=com")`,
 		`ldapDN("krb5PrincipalName=a\u00ADb,dc=com") != ldapDN("krb5PrincipalName=ab,dc=com")`,
+		`ldapDN("univentionObjectIdentifier=0f8b2c4e-6a1d-4e3f-9b7a-2c5d8e1f4a6b,dc=com") == ldapDN("1.3.6.1.4.1.10176.1003.3=0F8B2C4E-6A1D-4E3F-9B7A-2C5D8E1F4A6B,dc=com")`,
 	} {
 		t.Run(expr, func(t *testing.T) {
 			have, err := evalBoth(t, expr, globals)

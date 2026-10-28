@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cerbos/cerbos/internal/conditions"
+	customtypes "github.com/cerbos/cerbos/internal/conditions/types"
 	"github.com/cerbos/cerbos/internal/config"
 	"github.com/cerbos/cerbos/internal/namer"
 	"go.uber.org/multierr"
@@ -75,6 +76,10 @@ func (c *Conf) Validate() (outErr error) {
 		if err := conditions.ValidateIdentifier(identifier); err != nil {
 			multierr.AppendInto(&outErr, fmt.Errorf("engine.globals: %w", err))
 		}
+	}
+
+	if err := customtypes.ValidateLDAPSchema(c.Globals); err != nil {
+		multierr.AppendInto(&outErr, fmt.Errorf("engine.globals.%w", err))
 	}
 
 	switch c.CELErrorLogLevel {

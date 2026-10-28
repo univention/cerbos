@@ -1,0 +1,150 @@
+// SPDX-FileCopyrightText: 2026 Zenauth Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+package types
+
+import (
+	"fmt"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
+)
+
+// mapToNothing holds the code points that RFC 4518 section 2.2 removes.
+var mapToNothing = &unicode.RangeTable{
+	R16: []unicode.Range16{
+		{Lo: 0x0000, Hi: 0x0008, Stride: 1},
+		{Lo: 0x000E, Hi: 0x001F, Stride: 1},
+		{Lo: 0x007F, Hi: 0x0084, Stride: 1},
+		{Lo: 0x0086, Hi: 0x009F, Stride: 1},
+		{Lo: 0x00AD, Hi: 0x00AD, Stride: 1},
+		{Lo: 0x034F, Hi: 0x034F, Stride: 1},
+		{Lo: 0x06DD, Hi: 0x06DD, Stride: 1},
+		{Lo: 0x070F, Hi: 0x070F, Stride: 1},
+		{Lo: 0x1806, Hi: 0x1806, Stride: 1},
+		{Lo: 0x180B, Hi: 0x180E, Stride: 1},
+		{Lo: 0x200B, Hi: 0x200F, Stride: 1},
+		{Lo: 0x202A, Hi: 0x202E, Stride: 1},
+		{Lo: 0x2060, Hi: 0x2063, Stride: 1},
+		{Lo: 0x206A, Hi: 0x206F, Stride: 1},
+		{Lo: 0xFE00, Hi: 0xFE0F, Stride: 1},
+		{Lo: 0xFEFF, Hi: 0xFEFF, Stride: 1},
+		{Lo: 0xFFF9, Hi: 0xFFFC, Stride: 1},
+	},
+	R32: []unicode.Range32{
+		{Lo: 0x1D173, Hi: 0x1D17A, Stride: 1},
+		{Lo: 0xE0001, Hi: 0xE0001, Stride: 1},
+		{Lo: 0xE0020, Hi: 0xE007F, Stride: 1},
+	},
+	LatinOffset: 5,
+}
+
+// isAttrType reports whether t, as returned by canonicalAttrType, is a name or
+// a numeric OID as RFC 4512 section 1.4 defines them. Any other type could
+// contain "=", and then two different type and value pairs give the same key.
+func isAttrType(t string) bool {
+	if t == "" {
+		return false
+	}
+
+	if t[0] >= 'a' && t[0] <= 'z' {
+		for i := 1; i < len(t); i++ {
+			c := t[i]
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	if !strings.Contains(t, ".") {
+		return false
+	}
+
+	for arc := range strings.SplitSeq(t, ".") {
+		if arc == "" || (len(arc) > 1 && arc[0] == '0') {
+			return false
+		}
+		for i := range len(arc) {
+			if arc[i] < '0' || arc[i] > '9' {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// prepareASCIIAttrValue gives the result of prepareUnicodeAttrValue for values
+// that are pure ASCII, where NFKC changes nothing, case folding is lowercasing,
+// and no character is prohibited. It reports false for any other value.
+func prepareASCIIAttrValue(value string, foldCase bool) (string, bool) {
+	b := make([]byte, 0, len(value))
+	space := false
+	for i := range len(value) {
+		c := value[i]
+		switch {
+		case c >= utf8.RuneSelf:
+			return "", false
+		case c >= '\t' && c <= '\r', c == ' ':
+			space = len(b) > 0
+		case c < ' ', c == 0x7F:
+		default:
+			if space {
+				b = append(b, ' ')
+				space = false
+			}
+			if foldCase && c >= 'A' && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			b = append(b, c)
+		}
+	}
+
+	return string(b), true
+}
+
+func prepareUnicodeAttrValue(value string, foldCase bool) (string, error) {
+	var b strings.Builder
+	for _, r := range value {
+		switch {
+		case unicode.Is(mapToNothing, r):
+		case r >= '\t' && r <= '\r', r == 0x85, unicode.Is(unicode.Z, r):
+			b.WriteByte(' ')
+		default:
+			b.WriteRune(r)
+		}
+	}
+
+	s := b.String()
+	if !foldCase {
+		s = norm.NFKC.String(s)
+	} else {
+		s = norm.NFKC.String(cases.Fold().String(s))
+		// Folding again covers the characters that NFKC turns into uppercase
+		// letters (U+2121 to "TEL"), as RFC 3454 table B.2 does.
+		s = norm.NFKC.String(cases.Fold().String(s))
+	}
+
+	for _, r := range s {
+		if isProhibited(r) {
+			return "", fmt.Errorf("prohibited character %U", r)
+		}
+	}
+
+	return strings.Join(strings.Fields(s), " "), nil
+}
+
+// isProhibited reports the code points that RFC 4518 section 2.4 rejects and
+// that are left after mapping and normalization. utf8.RuneError also stands
+// for invalid UTF-8.
+func isProhibited(r rune) bool {
+	return r == utf8.RuneError ||
+		unicode.Is(unicode.Co, r) ||
+		(r >= 0xFDD0 && r <= 0xFDEF) || r&0xFFFE == 0xFFFE ||
+		!unicode.In(r, unicode.L, unicode.M, unicode.N, unicode.P, unicode.S, unicode.Z, unicode.C)
+}

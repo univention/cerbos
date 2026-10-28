@@ -95,8 +95,10 @@ func (clib cerbosLib) CompileOptions() []cel.EnvOption {
 
 	return []cel.EnvOption{
 		cel.FunctionDecls(customtypes.HierarchyDeclrations...),
+		cel.FunctionDecls(customtypes.LDAPDNDeclarations...),
+		cel.FunctionDecls(customtypes.LDAPDNListDeclarations...),
 		cel.FunctionDecls(customtypes.SPIFFEDeclrations...),
-		cel.Types(customtypes.HierarchyType, customtypes.SPIFFEIDType, customtypes.SPIFFETrustDomainType, customtypes.SPIFFEMatcherType),
+		cel.Types(customtypes.HierarchyType, customtypes.LDAPDNType, customtypes.LDAPDNListType, customtypes.SPIFFEIDType, customtypes.SPIFFETrustDomainType, customtypes.SPIFFEMatcherType),
 		cel.Function(exceptFn, setOpFuncOverloads(exceptFn, exceptList)...),
 		cel.Function(hasIntersectionFn, setCheckFuncOverloads(hasIntersectionFn, setsIntersects)...),
 		cel.Function(hasIntersectionFnDeprecated, setCheckFuncOverloads(hasIntersectionFnDeprecated, setsIntersects)...),
@@ -235,6 +237,8 @@ func (clib cerbosLib) CompileOptions() []cel.EnvOption {
 			),
 		),
 		customtypes.HierarchyFunc,
+		customtypes.LDAPDNFunc,
+		customtypes.LDAPDNListFunc,
 		customtypes.SPIFFEIDFunc,
 		customtypes.SPIFFEMatchAnyFunc,
 		customtypes.SPIFFEMatchExactFunc,

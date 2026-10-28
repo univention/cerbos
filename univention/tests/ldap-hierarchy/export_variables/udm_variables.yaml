@@ -1,0 +1,17 @@
+apiVersion: api.cerbos.dev/v1
+exportVariables:
+  name: udm_variables
+  # PlanResources resolves the role check and returns an OR of the matching contexts only
+  # if role and resource are checked in one exists per role; udm_assignments must not use
+  # R, or the plan contains the whole role_assignments list with filter and lambda operators.
+  definitions:
+    udm_assignments: >-
+      has(P.attr.role_assignments)
+      ? P.attr.role_assignments.filter(a, has(a.context_udm_position))
+      : []
+    helpdesk_in_context: >-
+      V.udm_assignments.exists(a, a.role == "helpdesk"
+        && ldapDN(a.context_udm_position).scopeSubtree(ldapDN(R.attr.position)))
+    ouadmin_in_context: >-
+      V.udm_assignments.exists(a, a.role == "ouadmin"
+        && ldapDN(a.context_udm_position).scopeSubtree(ldapDN(R.attr.position)))

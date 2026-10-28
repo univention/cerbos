@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/TestSuite.schema.json
+
+name: Test ouadmin role with context
+description: ouadmin_context grants modify_user at and below each assigned context, escaped and multi-valued RDNs included
+
+principals:
+
+  sally:
+    id: sally
+    roles:
+      - user
+
+  ian:
+    id: ian
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+       - role: ouadmin
+         context: ou=ham+ou=burg,dc=base
+       - role: ouadmin
+         context: ou=bremen,dc=base
+       - role: ouadmin
+         context: 'ou=\+1,dc=base'
+
+  frank:
+    id: frank
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+       - role: ouadmin
+         context: ou=ham+ou=burg,dc=base
+
+  james:
+    id: james
+    roles:
+      - ouadmin
+      - helpdesk
+
+resources:
+  resource1:
+    id: user1
+    kind: user
+    attr:
+      position: ou=schoo1,ou=ham+ou=burg,dc=base
+  resource2:
+    id: user2
+    kind: user
+    attr:
+      position: ou=bremen,dc=base
+  resource3:
+    id: user3
+    kind: user
+    attr:
+      position: ou=berlin,dc=base
+  resource4:
+    id: user4
+    kind: user
+    attr:
+      position: 'ou=\2B1,dc=base'
+
+tests:
+
+  - name: ouadmin modifies users at and below each of its contexts
+    input:
+      principals:
+        - ian
+      resources:
+        - resource1
+        - resource2
+        - resource3
+        - resource4
+      actions:
+        - modify_user
+    expected:
+      - principal: ian
+        resource: resource1
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: ian
+        resource: resource2
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: ian
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: ian
+        resource: resource4
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: ouadmin outside its context
+    input:
+      principals:
+        - frank
+      resources:
+        - resource1
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+    expected:
+      - principal: frank
+        resource: resource1
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: frank
+        resource: resource2
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: frank
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+
+  - name: user without ouadmin role modifies nobody
+    input:
+      principals:
+        - sally
+      resources:
+        - resource1
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+    expected:
+      - principal: sally
+        resource: resource1
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: sally
+        resource: resource2
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: sally
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY

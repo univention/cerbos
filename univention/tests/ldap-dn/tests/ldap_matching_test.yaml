@@ -1,0 +1,255 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/TestSuite.schema.json
+
+name: Test LDAP DN matching in contexts
+description: Spellings the directory treats as the same DN match the context, lookalikes and invalid DNs do not
+
+principals:
+
+  olaf:
+    id: olaf
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+        - role: ouadmin
+          context: ou=bremen,dc=base
+
+  olaf_uppercase_context:
+    id: olaf
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+        - role: ouadmin
+          context: OU=BREMEN,DC=BASE
+
+  frank:
+    id: frank
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+        - role: ouadmin
+          context: ou=ham+ou=burg,dc=base
+
+resources:
+
+  bremen:
+    id: user_bremen
+    kind: user
+    attr:
+      position: ou=bremen,dc=base
+
+  bremen_mixed_case:
+    id: user_bremen_mixed_case
+    kind: user
+    attr:
+      position: OU=Bremen,DC=Base
+
+  bremen_users_mixed_case:
+    id: user_bremen_users_mixed_case
+    kind: user
+    attr:
+      position: cn=Users,ou=BREMEN,dc=base
+
+  bremen_long_names:
+    id: user_bremen_long_names
+    kind: user
+    attr:
+      position: organizationalUnitName=bremen,domainComponent=base
+
+  bremen_oid:
+    id: user_bremen_oid
+    kind: user
+    attr:
+      position: 2.5.4.11=bremen,0.9.2342.19200300.100.1.25=base
+
+  bremen_escaped_space:
+    id: user_bremen_escaped_space
+    kind: user
+    attr:
+      position: 'ou=\ bremen,dc=base'
+
+  bremen_prefix:
+    id: user_bremen_prefix
+    kind: user
+    attr:
+      position: ou=bremen2,dc=base
+
+  bremen_other_base:
+    id: user_bremen_other_base
+    kind: user
+    attr:
+      position: ou=bremen,dc=base2
+
+  bremen_other_type:
+    id: user_bremen_other_type
+    kind: user
+    attr:
+      position: cn=bremen,dc=base
+
+  bremen_prohibited_char:
+    id: user_bremen_prohibited_char
+    kind: user
+    attr:
+      position: "cn=x,ou=bremen,dc=base"
+
+  invalid_dn:
+    id: user_invalid_dn
+    kind: user
+    attr:
+      position: not a dn
+
+  empty_position:
+    id: user_empty_position
+    kind: user
+    attr:
+      position: ""
+
+  no_position:
+    id: user_no_position
+    kind: user
+
+  hamburg_reordered:
+    id: user_hamburg_reordered
+    kind: user
+    attr:
+      position: cn=users,ou=burg+ou=ham,dc=base
+
+  hamburg_only:
+    id: user_hamburg_only
+    kind: user
+    attr:
+      position: cn=users,ou=ham,dc=base
+
+tests:
+
+  - name: spellings of the same DN match the context
+    input:
+      principals:
+        - olaf
+      resources:
+        - bremen
+        - bremen_mixed_case
+        - bremen_users_mixed_case
+        - bremen_long_names
+        - bremen_oid
+        - bremen_escaped_space
+      actions:
+        - modify_user
+    expected:
+      - principal: olaf
+        resource: bremen
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf
+        resource: bremen_mixed_case
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf
+        resource: bremen_users_mixed_case
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf
+        resource: bremen_long_names
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf
+        resource: bremen_oid
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf
+        resource: bremen_escaped_space
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: context spelled in uppercase matches lowercase positions
+    input:
+      principals:
+        - olaf_uppercase_context
+      resources:
+        - bremen
+        - bremen_users_mixed_case
+      actions:
+        - modify_user
+    expected:
+      - principal: olaf_uppercase_context
+        resource: bremen
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: olaf_uppercase_context
+        resource: bremen_users_mixed_case
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: lookalike DNs do not match the context
+    input:
+      principals:
+        - olaf
+      resources:
+        - bremen_prefix
+        - bremen_other_base
+        - bremen_other_type
+      actions:
+        - modify_user
+    expected:
+      - principal: olaf
+        resource: bremen_prefix
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: olaf
+        resource: bremen_other_base
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: olaf
+        resource: bremen_other_type
+        actions:
+          modify_user: EFFECT_DENY
+
+  - name: invalid or missing positions fail closed
+    input:
+      principals:
+        - olaf
+      resources:
+        - bremen_prohibited_char
+        - invalid_dn
+        - empty_position
+        - no_position
+      actions:
+        - modify_user
+    expected:
+      - principal: olaf
+        resource: bremen_prohibited_char
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: olaf
+        resource: invalid_dn
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: olaf
+        resource: empty_position
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: olaf
+        resource: no_position
+        actions:
+          modify_user: EFFECT_DENY
+
+  - name: multi-valued RDNs match in any order but not partially
+    input:
+      principals:
+        - frank
+      resources:
+        - hamburg_reordered
+        - hamburg_only
+      actions:
+        - modify_user
+    expected:
+      - principal: frank
+        resource: hamburg_reordered
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: frank
+        resource: hamburg_only
+        actions:
+          modify_user: EFFECT_DENY

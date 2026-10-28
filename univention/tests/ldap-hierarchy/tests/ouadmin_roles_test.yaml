@@ -1,0 +1,222 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/TestSuite.schema.json
+
+name: Test ouadmin role with context
+description: The ouadmin role policy grants modify_user at and below each ouadmin context_udm_position, ignoring other roles and non-UDM contexts
+
+principals:
+
+  sally:
+    id: sally
+    roles:
+      - user
+
+  ian:
+    id: ian
+    roles:
+      - ouadmin
+    attr:
+      role_assignments:
+       - role: ouadmin
+         context_udm_position: ou=ham+ou=burg,dc=base
+       - role: ouadmin
+         context_udm_position: ou=bremen,dc=base
+       - role: ouadmin
+         context_udm_position: 'ou=\+1,dc=base'
+
+  frank:
+    id: frank
+    roles:
+      - ouadmin
+    attr:
+      role_assignments:
+       - role: ouadmin
+         context_udm_position: ou=ham+ou=burg,dc=base
+
+  james:
+    id: james
+    roles:
+      - ouadmin
+      - helpdesk
+
+  mia:
+    id: mia
+    roles:
+      - ouadmin
+      - helpdesk
+    attr:
+      role_assignments:
+       - role: ouadmin
+         context_udm_position: ou=bremen,dc=base
+       - role: helpdesk
+         context_udm_position: ou=berlin,dc=base
+
+  paul:
+    id: paul
+    roles:
+      - ouadmin
+    attr:
+      role_assignments:
+       - role: portal_admin
+         context_portal_foo: xyz
+       - role: ouadmin
+         context_udm_position: ou=bremen,dc=base
+
+resources:
+  resource1:
+    id: user1
+    kind: user
+    attr:
+      position: ou=schoo1,ou=ham+ou=burg,dc=base
+  resource2:
+    id: user2
+    kind: user
+    attr:
+      position: ou=bremen,dc=base
+  resource3:
+    id: user3
+    kind: user
+    attr:
+      position: ou=berlin,dc=base
+  resource4:
+    id: user4
+    kind: user
+    attr:
+      position: 'ou=\2B1,dc=base'
+
+tests:
+
+  - name: ouadmin modifies users at and below each of its contexts
+    input:
+      principals:
+        - ian
+      resources:
+        - resource1
+        - resource2
+        - resource3
+        - resource4
+      actions:
+        - modify_user
+    expected:
+      - principal: ian
+        resource: resource1
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: ian
+        resource: resource2
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: ian
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: ian
+        resource: resource4
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: ouadmin outside its context
+    input:
+      principals:
+        - frank
+      resources:
+        - resource1
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+    expected:
+      - principal: frank
+        resource: resource1
+        actions:
+          modify_user: EFFECT_ALLOW
+      - principal: frank
+        resource: resource2
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: frank
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+
+  - name: user without ouadmin role modifies nobody
+    input:
+      principals:
+        - sally
+      resources:
+        - resource1
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+    expected:
+      - principal: sally
+        resource: resource1
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: sally
+        resource: resource2
+        actions:
+          modify_user: EFFECT_DENY
+      - principal: sally
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+
+  - name: assignments of one role do not grant the other role's actions
+    input:
+      principals:
+        - mia
+      resources:
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+        - reset_password
+    expected:
+      - principal: mia
+        resource: resource2
+        actions:
+          modify_user: EFFECT_ALLOW
+          reset_password: EFFECT_DENY
+      - principal: mia
+        resource: resource3
+        actions:
+          modify_user: EFFECT_DENY
+          reset_password: EFFECT_ALLOW
+
+  - name: assignments without a UDM context are ignored
+    input:
+      principals:
+        - paul
+      resources:
+        - resource2
+        - resource3
+      actions:
+        - modify_user
+    expected:
+      - principal: paul
+        resource: resource2
+        actions:
+          modify_user: EFFECT_ALLOW
+
+  - name: roles without role_assignments grant nothing in context
+    input:
+      principals:
+        - james
+      resources:
+        - resource1
+        - resource2
+      actions:
+        - modify_user
+        - reset_password
+    expected:
+      - principal: james
+        resource: resource1
+        actions:
+          modify_user: EFFECT_DENY
+          reset_password: EFFECT_DENY
+      - principal: james
+        resource: resource2
+        actions:
+          modify_user: EFFECT_DENY
+          reset_password: EFFECT_DENY

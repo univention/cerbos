@@ -127,8 +127,9 @@ It uses `$GO_IMAGE` and does the following:
 
 1. `cerbos compile internal/test/testdata/store` compiles the test policies
    and runs their `*_test.yaml` suites.
-2. `cerbos server` starts with `hack/dev/conf.insecure.yaml`.
-3. `cerbos healthcheck --kind=http` polls the server once per second
+2. `cerbos compile univention/tests/*` runs the suites.
+3. `cerbos server` starts with `hack/dev/conf.insecure.yaml`.
+4. `cerbos healthcheck --kind=http` polls the server once per second
    and fails the job if it is not healthy after 30 attempts.
 
 The server log is kept as the `cerbos.log` artifact, also when the job fails.
@@ -177,6 +178,8 @@ Run the smoke checks against the built binary:
 
 ```sh
 ./docker/cerbos/cerbos compile internal/test/testdata/store
+./docker/cerbos/cerbos compile univention/tests/ldap-dn
+./docker/cerbos/cerbos compile univention/tests/ldap-hierarchy
 ./docker/cerbos/cerbos server --config=hack/dev/conf.insecure.yaml &
 sleep 2
 ./docker/cerbos/cerbos healthcheck --config=hack/dev/conf.insecure.yaml --kind=http
@@ -188,6 +191,8 @@ kill %1
 - `.gitlab-ci.yml`: pipeline workflow, jobs, and includes.
 - `docker/cerbos/Dockerfile`: runtime image for the CI build.
 - `ci/testsplit-times.json`: package test durations for the `test-cerbos` split.
+- `univention/tests/`: policies and test suites,
+  run by `smoke-cerbos`.
 
 ## Notes and limits
 

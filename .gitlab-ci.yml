@@ -144,6 +144,8 @@ smoke-cerbos:
     - |
       set -eu
       ./docker/cerbos/cerbos compile internal/test/testdata/store
+      ./docker/cerbos/cerbos compile univention/tests/ldap-dn
+      ./docker/cerbos/cerbos compile univention/tests/ldap-hierarchy
       # TODO add our sandbox tests here https://git.knut.univention.de/univention/dev/sandbox/cerbos-sandbox
       ./docker/cerbos/cerbos server --config=hack/dev/conf.insecure.yaml > cerbos.log 2>&1 &
       tries=0

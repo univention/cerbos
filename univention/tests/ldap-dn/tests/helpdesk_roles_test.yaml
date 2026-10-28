@@ -1,0 +1,217 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/TestSuite.schema.json
+
+name: Test helpdesk role with context
+description: helpdesk_context grants reset_password below the assigned context, and only for helpdesk assignments
+
+principals:
+
+  hanna:
+    id: hanna
+    roles:
+      - helpdesk
+    attr:
+      assignments:
+        - role: helpdesk
+          context: ou=bremen,dc=base
+
+  hanna_ouadmin_assignment:
+    id: hanna
+    roles:
+      - helpdesk
+    attr:
+      assignments:
+        - role: ouadmin
+          context: ou=bremen,dc=base
+
+  hanna_without_role:
+    id: hanna
+    roles:
+      - user
+    attr:
+      assignments:
+        - role: helpdesk
+          context: ou=bremen,dc=base
+
+  olaf:
+    id: olaf
+    roles:
+      - ouadmin
+    attr:
+      assignments:
+        - role: ouadmin
+          context: ou=bremen,dc=base
+
+  mia:
+    id: mia
+    roles:
+      - ouadmin
+      - helpdesk
+    attr:
+      assignments:
+        - role: ouadmin
+          context: ou=ham+ou=burg,dc=base
+        - role: helpdesk
+          context: ou=bremen,dc=base
+
+  james:
+    id: james
+    roles:
+      - ouadmin
+      - helpdesk
+
+resources:
+
+  bremen:
+    id: user_bremen
+    kind: user
+    attr:
+      position: ou=bremen,dc=base
+
+  bremen_users:
+    id: user_bremen_users
+    kind: user
+    attr:
+      position: cn=users,ou=bremen,dc=base
+
+  berlin:
+    id: user_berlin
+    kind: user
+    attr:
+      position: ou=berlin,dc=base
+
+  base:
+    id: user_base
+    kind: user
+    attr:
+      position: dc=base
+
+  hamburg:
+    id: user_hamburg
+    kind: user
+    attr:
+      position: ou=school1,ou=ham+ou=burg,dc=base
+
+tests:
+
+  - name: helpdesk resets passwords at and below its context
+    input:
+      principals:
+        - hanna
+      resources:
+        - bremen
+        - bremen_users
+      actions:
+        - reset_password
+        - modify_user
+    expected:
+      - principal: hanna
+        resource: bremen
+        actions:
+          reset_password: EFFECT_ALLOW
+          modify_user: EFFECT_DENY
+      - principal: hanna
+        resource: bremen_users
+        actions:
+          reset_password: EFFECT_ALLOW
+          modify_user: EFFECT_DENY
+
+  - name: helpdesk outside or above its context
+    input:
+      principals:
+        - hanna
+      resources:
+        - berlin
+        - base
+      actions:
+        - reset_password
+    expected:
+      - principal: hanna
+        resource: berlin
+        actions:
+          reset_password: EFFECT_DENY
+      - principal: hanna
+        resource: base
+        actions:
+          reset_password: EFFECT_DENY
+
+  - name: assignment for another role does not grant helpdesk
+    input:
+      principals:
+        - hanna_ouadmin_assignment
+      resources:
+        - bremen
+      actions:
+        - reset_password
+    expected:
+      - principal: hanna_ouadmin_assignment
+        resource: bremen
+        actions:
+          reset_password: EFFECT_DENY
+
+  - name: helpdesk assignment without helpdesk role
+    input:
+      principals:
+        - hanna_without_role
+      resources:
+        - bremen
+      actions:
+        - reset_password
+    expected:
+      - principal: hanna_without_role
+        resource: bremen
+        actions:
+          reset_password: EFFECT_DENY
+
+  - name: ouadmin cannot reset passwords
+    input:
+      principals:
+        - olaf
+      resources:
+        - bremen
+      actions:
+        - reset_password
+        - modify_user
+    expected:
+      - principal: olaf
+        resource: bremen
+        actions:
+          reset_password: EFFECT_DENY
+          modify_user: EFFECT_ALLOW
+
+  - name: each assignment applies only to its own role
+    input:
+      principals:
+        - mia
+      resources:
+        - bremen
+        - hamburg
+      actions:
+        - reset_password
+        - modify_user
+    expected:
+      - principal: mia
+        resource: bremen
+        actions:
+          reset_password: EFFECT_ALLOW
+          modify_user: EFFECT_DENY
+      - principal: mia
+        resource: hamburg
+        actions:
+          reset_password: EFFECT_DENY
+          modify_user: EFFECT_ALLOW
+
+  - name: roles without assignments grant nothing
+    input:
+      principals:
+        - james
+      resources:
+        - bremen
+      actions:
+        - reset_password
+        - modify_user
+    expected:
+      - principal: james
+        resource: bremen
+        actions:
+          reset_password: EFFECT_DENY
+          modify_user: EFFECT_DENY

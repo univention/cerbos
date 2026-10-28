@@ -1,0 +1,16 @@
+apiVersion: api.cerbos.dev/v1
+rolePolicy:
+  role: ouadmin
+  parentRoles:
+    - admin
+  variables:
+    import:
+      - udm_variables
+  rules:
+    - resource: user
+      allowActions:
+        - modify_user
+      condition:
+        match:
+          expr: V.ouadmin_in_context
+

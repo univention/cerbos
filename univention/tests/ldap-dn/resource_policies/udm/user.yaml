@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/Policy.schema.json
+
+apiVersion: api.cerbos.dev/v1
+
+resourcePolicy:
+  version: "default"
+  resource: user
+
+  importDerivedRoles:
+    - udm_derived_roles
+
+  rules:
+    - actions:
+        - reset_password
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - helpdesk_context
+
+    - actions:
+        - modify_user
+      effect: EFFECT_ALLOW
+      derivedRoles:
+        - ouadmin_context

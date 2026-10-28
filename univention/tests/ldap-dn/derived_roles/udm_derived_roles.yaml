@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://api.cerbos.dev/latest/cerbos/policy/v1/Policy.schema.json
+
+apiVersion: api.cerbos.dev/v1
+
+derivedRoles:
+  name: udm_derived_roles
+
+  definitions:
+    - name: helpdesk_context
+      parentRoles:
+        - helpdesk
+      condition:
+        match:
+          expr: request.principal.attr.assignments.exists(
+                  a,
+                  a.role == "helpdesk" &&
+                    ldapDN(a.context).scopeSubtree(ldapDN(request.resource.attr.position))
+                )
+
+    - name: ouadmin_context
+      parentRoles:
+        - ouadmin
+      condition:
+        match:
+          expr: request.principal.attr.assignments.exists(
+                  a,
+                  a.role == "ouadmin" &&
+                    ldapDN(a.context).scopeSubtree(ldapDN(request.resource.attr.position))
+                )

@@ -1,0 +1,15 @@
+apiVersion: api.cerbos.dev/v1
+rolePolicy:
+  role: helpdesk
+  parentRoles:
+    - admin
+  variables:
+    import:
+      - udm_variables
+  rules:
+    - resource: user
+      allowActions:
+        - reset_password
+      condition:
+        match:
+          expr: V.helpdesk_in_context

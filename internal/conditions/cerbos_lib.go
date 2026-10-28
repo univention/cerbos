@@ -96,8 +96,11 @@ func (clib cerbosLib) CompileOptions() []cel.EnvOption {
 
 	return []cel.EnvOption{
 		cel.FunctionDecls(customtypes.HierarchyDeclrations...),
+		cel.FunctionDecls(customtypes.LDAPDNDeclarations...),
+		cel.FunctionDecls(customtypes.LDAPDNListDeclarations...),
 		cel.FunctionDecls(customtypes.SPIFFEDeclrations...),
-		cel.Types(customtypes.HierarchyType, customtypes.SPIFFEIDType, customtypes.SPIFFETrustDomainType, customtypes.SPIFFEMatcherType),
+		cel.ASTValidators(customtypes.LDAPScopeValidator()),
+		cel.Types(customtypes.HierarchyType, customtypes.LDAPDNType, customtypes.LDAPDNListType, customtypes.SPIFFEIDType, customtypes.SPIFFETrustDomainType, customtypes.SPIFFEMatcherType),
 		cel.Function(exceptFn, setOpFuncOverloads(exceptFn, exceptList)...),
 		cel.Function(hasIntersectionFn, setCheckFuncOverloads(hasIntersectionFn, setsIntersects)...),
 		cel.Function(hasIntersectionFnDeprecated, setCheckFuncOverloads(hasIntersectionFnDeprecated, setsIntersects)...),
@@ -236,6 +239,8 @@ func (clib cerbosLib) CompileOptions() []cel.EnvOption {
 			),
 		),
 		customtypes.HierarchyFunc,
+		customtypes.LDAPDNFunc,
+		customtypes.LDAPDNListFunc,
 		customtypes.SPIFFEIDFunc,
 		customtypes.SPIFFEMatchAnyFunc,
 		customtypes.SPIFFEMatchExactFunc,
@@ -277,6 +282,10 @@ func CacheFriendlyTimeDecorator() interpreter.InterpretableDecorator {
 }
 
 func cacheFriendlyTimeDecorate(in interpreter.Interpretable) (interpreter.Interpretable, error) {
+	if out, ok := customtypes.DecorateLDAPCall(in, CELGlobalsIdent); ok {
+		return out, nil
+	}
+
 	call, ok := in.(interpreter.InterpretableCall)
 	if !ok {
 		return in, nil
@@ -355,6 +364,10 @@ type timeDecorator struct {
 }
 
 func (t *timeDecorator) decorate(in interpreter.Interpretable) (interpreter.Interpretable, error) {
+	if out, ok := customtypes.DecorateLDAPCall(in, CELGlobalsIdent); ok {
+		return out, nil
+	}
+
 	call, ok := in.(interpreter.InterpretableCall)
 	if !ok {
 		return in, nil

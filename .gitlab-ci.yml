@@ -1,0 +1,171 @@
+---
+# SPDX-FileCopyrightText: 2025-2026 Univention GmbH
+# SPDX-License-Identifier: AGPL-3.0-only
+
+include:
+  - project: "univention/dev/nubus-for-k8s/common-ci"
+    ref: "v1.68.2"
+    file:
+      - "defaults/stages.yaml"
+      - "jobs/container-build.yaml"
+  # Opt-in AI review of merge requests. Requires AI_REVIEW_TOKEN (api scope)
+  # and OPENAI_API_KEY; the component defaults both to group variables under
+  # /univention, so define them in this project when running from a personal
+  # namespace.
+  - component: "$CI_SERVER_FQDN/univention/dev/tooling/ci-components/ai-review@2.22.0"
+
+variables:
+  IMAGE_NAME: "cerbos"
+  # In a project without the dependency proxy, override GO_IMAGE and
+  # KANIKO_DOCKER_PROXY, and provide the proxy variables the common-ci Kaniko
+  # job expects, or move the project into a group with the proxy enabled.
+  # Tracks the newest 1.27 patch like upstream's CI
+  # (.github/actions/setup-go/action.yaml: go-version 1.27.x, check-latest);
+  # raise the minor version when upstream's go.mod does.
+  GO_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golang:1.27"
+  GOMODCACHE: "${CI_PROJECT_DIR}/.go/mod"
+  GOCACHE: "${CI_PROJECT_DIR}/.go/build"
+
+.go-cache:
+  cache:
+    - key:
+        prefix: "gomod"
+        files:
+          - "go.sum"
+          - "hack/tools/testsplit/go.sum"
+      paths:
+        - ".go/mod/"
+    - key: "gobuild-${CI_JOB_NAME_SLUG}"
+      paths:
+        - ".go/build/"
+
+# Replaces common-ci's shared nubus-workflow: release pipelines are driven by
+# protected "vX.Y.Z-nubusN" tags. Pushes to protected "*-univention" branches
+# run CI and publish their branch image. Pushes to main (the upstream mirror)
+# run nothing; feature branches run only merge-request pipelines.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule-release"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# Build flags and ldflags mirror the "cerbos" build in .goreleaser.yml:
+# CGO_ENABLED=0 and GOAMD64=v2 (also exported in .justfile), -trimpath,
+# -s -w, and the Version/Commit/BuildDate -X flags. The values are the CI
+# equivalents of goreleaser's .Version/.FullCommit/.Date; the telemetry -X
+# flags are omitted. -buildvcs=false is CI-only and keeps the build
+# independent of the Git checkout; goreleaser embeds VCS info.
+build-cerbos:
+  extends: ".go-cache"
+  stage: "build"
+  image: "$GO_IMAGE"
+  variables:
+    CGO_ENABLED: "0"
+    GOAMD64: "v2"
+  script:
+    - |
+      mkdir -p docker/cerbos
+      VERSION="${CI_COMMIT_TAG:-${CI_COMMIT_SHORT_SHA}}"
+      BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      go build -trimpath -buildvcs=false \
+        -ldflags "-s -w \
+          -X github.com/cerbos/cerbos/internal/util.Version=${VERSION} \
+          -X github.com/cerbos/cerbos/internal/util.Commit=${CI_COMMIT_SHA} \
+          -X github.com/cerbos/cerbos/internal/util.BuildDate=${BUILD_DATE}" \
+        -o docker/cerbos/cerbos ./cmd/cerbos
+      ./docker/cerbos/cerbos --version
+  artifacts:
+    name: "cerbos-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - "docker/cerbos/cerbos"
+    expire_in: "1 week"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'
+      when: "never"
+    - when: "on_success"
+
+# One button for all test-cerbos parts; allow_failure keeps the pipeline from
+# showing as blocked when the tests are not started.
+start-tests:
+  stage: "test"
+  image: "$GO_IMAGE"
+  script:
+    - "true"
+  rules:
+    - when: "manual"
+      allow_failure: true
+
+test-cerbos:
+  extends: ".go-cache"
+  stage: "test"
+  image: "$GO_IMAGE"
+  timeout: "1h"
+  parallel: 4
+  needs:
+    - job: "start-tests"
+      artifacts: false
+  variables:
+    CGO_ENABLED: "1"
+  script:
+    - |
+      set -euo pipefail
+      GOWORK=off GOBIN=/tmp/bin go install -C hack/tools/testsplit
+      export PATH="/tmp/bin:${PATH}"
+      cp ci/testsplit-times.json test-times.json
+      # The blob and overlay tests, and upstream's integration-tagged tests,
+      # start containers through dockertest; the runner has no Docker.
+      testsplit split --kind=tests --index="$((CI_NODE_INDEX - 1))" --total="$CI_NODE_TOTAL" \
+        --ignore-file=.ignore-packages.yaml \
+        | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
+        | xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m
+  rules:
+    - when: "on_success"
+      #- if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'
+      #  when: "never"
+      #- when: "on_success"
+
+# Exercises the built binary rather than the sources: the policy test suites
+# through "cerbos compile", then a server start with a health check.
+smoke-cerbos:
+  stage: "test"
+  image: "$GO_IMAGE"
+  needs:
+    - job: "build-cerbos"
+      artifacts: true
+  script:
+    - |
+      set -eu
+      ./docker/cerbos/cerbos compile internal/test/testdata/store
+      # TODO add our sandbox tests here https://git.knut.univention.de/univention/dev/sandbox/cerbos-sandbox
+      ./docker/cerbos/cerbos server --config=hack/dev/conf.insecure.yaml > cerbos.log 2>&1 &
+      tries=0
+      until ./docker/cerbos/cerbos healthcheck --config=hack/dev/conf.insecure.yaml --kind=http; do
+        tries=$((tries + 1))
+        [ "$tries" -lt 30 ] || exit 1
+        sleep 1
+      done
+  artifacts:
+    when: "always"
+    paths:
+      - "cerbos.log"
+    expire_in: "1 week"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: "never"
+    - when: "on_success"
+
+container-build:
+  stage: "package"
+  needs:
+    - job: "build-cerbos"
+      artifacts: true
+    - job: "smoke-cerbos"
+      artifacts: false
+      #- job: "test-cerbos"
+      #  artifacts: false

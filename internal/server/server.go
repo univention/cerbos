@@ -37,6 +37,7 @@ import (
 	authzenv1 "github.com/cerbos/cerbos/api/genpb/authzen/authorization/v1"
 	svcv1 "github.com/cerbos/cerbos/api/genpb/cerbos/svc/v1"
 	"github.com/cerbos/cerbos/internal/audit"
+	"github.com/cerbos/cerbos/internal/guardianroles"
 	"github.com/cerbos/cerbos/internal/telemetry"
 	"github.com/cerbos/cerbos/internal/validator"
 
@@ -375,6 +376,7 @@ func (s *Server) mkGRPCServer(log *zap.Logger, core *CoreComponents) (*grpc.Serv
 		grpc.ChainUnaryInterceptor(
 			grpc_recovery.UnaryServerInterceptor(),
 			telemetryInt.UnaryServerInterceptor(),
+			guardianroles.UnaryServerInterceptor(),
 			grpc_validator.UnaryServerInterceptor(validator.Validator),
 			RequestMetadataUnaryServerInterceptor,
 			auditInterceptor,

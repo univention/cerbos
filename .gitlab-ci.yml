@@ -4,10 +4,11 @@
 
 include:
   - project: "univention/dev/nubus-for-k8s/common-ci"
-    ref: "v1.68.2"
+    ref: "v1.71.0"
     file:
       - "defaults/stages.yaml"
-      - "jobs/container-build.yaml"
+      - "templates/tagged-release.yaml"
+      - "jobs/container-build-external-buildkit.yaml"
   # Opt-in AI review of merge requests. Requires AI_REVIEW_TOKEN (api scope)
   # and OPENAI_API_KEY; the component defaults both to group variables under
   # /univention, so define them in this project when running from a personal
@@ -17,8 +18,8 @@ include:
 variables:
   IMAGE_NAME: "cerbos"
   # In a project without the dependency proxy, override GO_IMAGE and
-  # KANIKO_DOCKER_PROXY, and provide the proxy variables the common-ci Kaniko
-  # job expects, or move the project into a group with the proxy enabled.
+  # BUILDKIT_DOCKER_PROXY, or move the project into a group with the proxy
+  # enabled.
   # Tracks the newest 1.27 patch like upstream's CI
   # (.github/actions/setup-go/action.yaml: go-version 1.27.x, check-latest);
   # raise the minor version when upstream's go.mod does.
@@ -55,25 +56,54 @@ workflow:
     - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# Release version stamp from common-ci's .tagged-release: a protected
+# "vX.Y.Z-nubusN" tag yields RELEASE_VERSION "X.Y.Z-nubusN" and
+# PUBLIC_RELEASE "true"; every other ref is a "<base>-post-<slug>" dev build
+# published to nubus-dev only. The job name is "pre-semantic-release" because
+# container-release-attestation needs it by that name.
+pre-semantic-release:
+  extends: ".tagged-release"
+  variables:
+    RELEASE_TAG_PATTERN: '^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$'
+    INITIAL_VERSION: "0.57.0"
+  # A release tag must sit on top of the upstream tag of the same version,
+  # otherwise it was cut on the wrong *-univention branch.
+  before_script:
+    - |
+      set -eu
+      if printf '%s' "${CI_COMMIT_TAG:-}" | grep -qE "${RELEASE_TAG_PATTERN}"; then
+        UPSTREAM_TAG="${CI_COMMIT_TAG%%-nubus*}"
+        git fetch --quiet origin "refs/tags/${UPSTREAM_TAG}:refs/tags/${UPSTREAM_TAG}"
+        if ! git merge-base --is-ancestor "${UPSTREAM_TAG}" HEAD; then
+          echo "ERROR: release tag '${CI_COMMIT_TAG}' is not based on upstream tag '${UPSTREAM_TAG}'."
+          exit 1
+        fi
+        echo "Release tag ${CI_COMMIT_TAG} is based on upstream tag ${UPSTREAM_TAG}."
+      fi
+
 # Build flags and ldflags mirror the "cerbos" build in .goreleaser.yml:
 # CGO_ENABLED=0, -trimpath, -s -w, and the Version/Commit/BuildDate -X
 # flags. GOAMD64 is v1 because goreleaser's goamd64 target (default v1)
 # overrides the GOAMD64=v2 in its env, so upstream releases are v1; v2
 # fails to start on VMs with generic CPU models. The values are the CI
-# equivalents of goreleaser's .Version/.FullCommit/.Date; the telemetry -X
+# equivalents of goreleaser's .Version/.FullCommit/.Date, with Version taken
+# from pre-semantic-release's RELEASE_VERSION; the telemetry -X
 # flags are omitted. -buildvcs=false is CI-only and keeps the build
 # independent of the Git checkout; goreleaser embeds VCS info.
 build-cerbos:
   extends: ".go-cache"
   stage: "build"
   image: "$GO_IMAGE"
+  needs:
+    - job: "pre-semantic-release"
+      artifacts: true
   variables:
     CGO_ENABLED: "0"
     GOAMD64: "v1"
   script:
     - |
       mkdir -p docker/cerbos
-      VERSION="${CI_COMMIT_TAG:-${CI_COMMIT_SHORT_SHA}}"
+      VERSION="${RELEASE_VERSION:?}"
       BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
       go build -trimpath -buildvcs=false \
         -ldflags "-s -w \
@@ -92,14 +122,17 @@ build-cerbos:
       when: "never"
     - when: "on_success"
 
-# One button for all test-cerbos parts; allow_failure keeps the pipeline from
-# showing as blocked when the tests are not started.
+# One button for all test-cerbos parts, pressed automatically on a release tag;
+# allow_failure keeps other pipelines from showing as blocked when the tests
+# are not started.
 start-tests:
   stage: "test"
   image: "$GO_IMAGE"
   script:
     - "true"
   rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: "on_success"
     - when: "manual"
       allow_failure: true
 
@@ -165,9 +198,58 @@ smoke-cerbos:
 container-build:
   stage: "package"
   needs:
+    - job: "pre-semantic-release"
+      artifacts: true
     - job: "build-cerbos"
       artifacts: true
     - job: "smoke-cerbos"
       artifacts: false
       #- job: "test-cerbos"
       #  artifacts: false
+
+# Exists only on a release tag, so the optional need in push-image-external
+# makes publishing wait for test-cerbos there and nowhere else.
+test-cerbos-passed:
+  stage: "test"
+  image: "$GO_IMAGE"
+  variables:
+    GIT_STRATEGY: "none"
+  needs:
+    - job: "test-cerbos"
+      artifacts: false
+  script:
+    - "true"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+
+# Explicit needs, so publishing does not wait for test-cerbos, which stays
+# pending until start-tests is run. On a release tag it waits for
+# test-cerbos-passed; sign and attest follow through their need on
+# push-image-external.
+push-image-external:
+  needs:
+    - job: "pre-semantic-release"
+      artifacts: true
+    - job: "container-build"
+      artifacts: true
+    - job: "test-cerbos-passed"
+      artifacts: false
+      optional: true
+
+container-sign-external:
+  needs:
+    - job: "pre-semantic-release"
+      artifacts: true
+    - job: "container-build"
+      artifacts: true
+    - job: "push-image-external"
+      artifacts: false
+
+container-release-attestation:
+  needs:
+    - job: "pre-semantic-release"
+      artifacts: true
+    - job: "container-build"
+      artifacts: true
+    - job: "push-image-external"
+      artifacts: false

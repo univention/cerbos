@@ -22,18 +22,20 @@ The upstream `README.md` remains the reference for Cerbos itself.
 
 ## Pipeline overview
 
-The pipeline uses `univention/dev/nubus-for-k8s/common-ci` v1.68.2 for stages
-and the Kaniko container build.
+The pipeline uses `univention/dev/nubus-for-k8s/common-ci` v1.71.0 for stages,
+the `.tagged-release` version stamp,
+and the buildkit container build with publishing to
+`artifacts.software-univention.de`.
 The local `workflow:` replaces the shared `nubus-workflow` so the fork can
 release from protected `vX.Y.Z-nubusN` tags
 and build its protected `*-univention` release branches.
 
 | Event | Pipeline | Jobs |
 | --- | --- | --- |
-| Protected `vX.Y.Z-nubusN` tag | Release | `build-cerbos`, `smoke-cerbos`, `container-build`, `start-tests` (manual), `test-cerbos` |
-| Merge request | Merge request | `build-cerbos`, `smoke-cerbos`, `container-build`, `start-tests` (manual), `test-cerbos`, `ai-review:*` (manual) |
+| Protected `vX.Y.Z-nubusN` tag | Release | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests`, `test-cerbos`, `test-cerbos-passed` |
+| Merge request | Merge request | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests` (manual), `test-cerbos`, `ai-review:*` (manual) |
 | Push to `main` | None | None |
-| Push to a protected `*-univention` branch | Branch | `build-cerbos`, `smoke-cerbos`, `container-build`, `start-tests` (manual), `test-cerbos` |
+| Push to a protected `*-univention` branch | Branch | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests` (manual), `test-cerbos` |
 | Feature branch without a merge request | None on push | None |
 | `schedule` pipeline | Scheduled | Build, test, and container jobs are skipped |
 
@@ -48,31 +50,61 @@ This includes a `*-univention` branch that is not protected.
 The branch is tested through its merge request pipeline.
 A manually started web pipeline can still run on a feature branch.
 
-## Image tags
+## Versions and image tags
 
-`container-build` pushes to the project container registry:
+`pre-semantic-release` extends common-ci's `.tagged-release`
+and writes `RELEASE_VERSION` and `PUBLIC_RELEASE` as a dotenv artifact.
+`build-cerbos` stamps `RELEASE_VERSION` into the binary,
+and the container jobs tag the image with it.
+
+| Pipeline | `RELEASE_VERSION` |
+| --- | --- |
+| Protected release tag `vX.Y.Z-nubusN` | `X.Y.Z-nubusN` |
+| Any other ref | `<base>-post-<ref-slug>` |
+
+`<base>` is the newest `vX.Y.Z-nubusN` tag without the `v`,
+or `INITIAL_VERSION` (`0.57.0`) before the first release tag exists.
+
+On a release tag, `pre-semantic-release` fails
+unless the upstream tag `vX.Y.Z` is an ancestor of the tagged commit.
+
+`container-build` pushes to the project container registry
+with the tag `RELEASE_VERSION`,
+and on a non-tag ref also with the ref slug:
 
 ```text
 $CI_REGISTRY_IMAGE/cerbos:<tag>
 ```
 
-| Pipeline | Image tag |
+`push-image-external` copies the image to
+`artifacts.software-univention.de/nubus-dev/images/cerbos:<RELEASE_VERSION>`,
+and on a release tag also to `nubus/images/cerbos`.
+`container-sign-external` signs the public image,
+and `container-release-attestation` attests both copies.
+These jobs need the `EXTERNAL_REGISTRY_ROBOT_TOKEN`
+and `COSIGN_*` CI/CD variables.
+
+| Pipeline | Image tags |
 | --- | --- |
-| Merge request | `branch-<slug>` |
-| Push to a protected `*-univention` branch | `branch-<slug>`, for example `branch-v0-57-0-univention` |
-| Protected release tag | The tag itself, for example `v0.57.0-nubus1` |
+| Merge request | `0.57.0-post-<slug>`, `<slug>` |
+| Push to a protected `*-univention` branch | `0.57.0-post-<slug>`, `<slug>`, for example `0.57.0-post-v0-57-0-univention` |
+| Protected release tag | `X.Y.Z-nubusN`, for example `0.57.0-nubus1` |
 
 ## Release process
 
 1. Create a protected tag matching `vX.Y.Z-nubusN`.
 2. The tag pipeline runs `build-cerbos` and then `smoke-cerbos`.
 3. `container-build` runs after both jobs succeed and pushes the image.
-   `test-cerbos` is manual and does not block the image.
+   The publish jobs copy it to `nubus-dev` and `nubus`,
+   then sign and attest it.
+   `test-cerbos` runs automatically on a release tag,
+   and `push-image-external` waits for it,
+   so a failing test stops the release.
 4. CI does not create a Git tag or a GitLab Release.
    The tag is created manually.
 5. `latest` is not published.
    Pushes to `main` run no pipeline,
-   and the common-ci release detection only matches plain `X.Y.Z` tags.
+   and the common-ci release detection only matches plain `X.Y.Z` versions.
 
 ## Build job
 
@@ -101,10 +133,12 @@ Those two packages start SeaweedFS through `ory/dockertest`, so they need
 Docker.
 The job does not use dind.
 Tests behind the `integration` tag are not run.
-The tests start only when the manual `start-tests` job is run,
+The tests start when the `start-tests` job runs,
 which starts all four parts at once.
-`start-tests` is allowed to fail,
-so unstarted tests block neither the pipeline nor `container-build`.
+On a protected release tag, `start-tests` runs automatically,
+and `push-image-external` waits for all four parts to pass.
+In every other pipeline, `start-tests` is manual and allowed to fail,
+so unstarted tests block neither the pipeline nor publishing.
 
 The job runs as four parallel jobs, `test-cerbos 1/4` to `test-cerbos 4/4`,
 like upstream's six-way split in `.github/workflows/pr-test.yaml`.
@@ -136,7 +170,7 @@ The job does not run in scheduled pipelines.
 
 ## Container image
 
-`container-build` uses the common-ci Kaniko template.
+`container-build` uses the common-ci buildkit template.
 The build context is `docker/cerbos` and the Dockerfile is
 `docker/cerbos/Dockerfile`.
 The image is `$CI_REGISTRY_IMAGE/cerbos`.
@@ -193,7 +227,8 @@ kill %1
 
 - The test job does not run the Docker-backed blob and overlay storage tests.
 - Integration tests are not run.
-- `test-cerbos` is manual and does not gate `container-build`,
-  so images are published even when the Go tests fail.
+- `test-cerbos` is manual except on release tags.
+  It gates publishing only on release tags,
+  so MR and branch images reach `nubus-dev` even when the Go tests fail.
   A failing `smoke-cerbos` does stop the image.
 - The CI binary is built with `-buildvcs=false`, so it has no VCS stamping.

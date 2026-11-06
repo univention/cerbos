@@ -122,6 +122,43 @@ func prepareAttrValue(attrType, value string) (string, error) {
 		return value, nil
 	}
 
+	if s, ok := prepareASCIIAttrValue(value, !caseExactAttrs[attrType]); ok {
+		return s, nil
+	}
+
+	return prepareUnicodeAttrValue(attrType, value)
+}
+
+// prepareASCIIAttrValue gives the result of prepareUnicodeAttrValue for values
+// that are pure ASCII, where NFKC changes nothing, case folding is lowercasing,
+// and no character is prohibited. It reports false for any other value.
+func prepareASCIIAttrValue(value string, foldCase bool) (string, bool) {
+	b := make([]byte, 0, len(value))
+	space := false
+	for i := range len(value) {
+		c := value[i]
+		switch {
+		case c >= utf8.RuneSelf:
+			return "", false
+		case c >= '\t' && c <= '\r', c == ' ':
+			space = len(b) > 0
+		case c < ' ', c == 0x7F:
+		default:
+			if space {
+				b = append(b, ' ')
+				space = false
+			}
+			if foldCase && c >= 'A' && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			b = append(b, c)
+		}
+	}
+
+	return string(b), true
+}
+
+func prepareUnicodeAttrValue(attrType, value string) (string, error) {
 	var b strings.Builder
 	for _, r := range value {
 		switch {

@@ -17,7 +17,18 @@ import (
 	"cel.dev/cel-go/common/types"
 	"cel.dev/cel-go/common/types/ref"
 	"cel.dev/cel-go/common/types/traits"
+
+	"github.com/cerbos/cerbos/internal/cache"
 )
+
+// ldapDNCacheSize bounds the parsed DNs kept by ldapDNCache. Parsing and
+// normalizing a DN costs several microseconds, and policies parse the same
+// DNs on every request.
+const ldapDNCacheSize = 1024
+
+// ldapDNCache maps DN strings to their parsed form. Sharing the values is safe
+// because an LDAPHierarchy is never modified after newLDAPHierarchy.
+var ldapDNCache = cache.New[string, LDAPHierarchy]("ldap_dn", ldapDNCacheSize)
 
 const (
 	ldapDNFn                = "ldapDN"
@@ -283,6 +294,10 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 		return dv
 
 	case types.String:
+		if h, ok := ldapDNCache.Get(string(dv)); ok {
+			return h
+		}
+
 		dn, err := ldapv3.ParseDN(string(dv))
 		if err != nil {
 			return types.NewErr("invalid LDAP DN: %v", err)
@@ -293,6 +308,7 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 			return types.NewErr("invalid LDAP DN: %v", err)
 		}
 
+		ldapDNCache.Set(string(dv), h)
 		return h
 
 	default:

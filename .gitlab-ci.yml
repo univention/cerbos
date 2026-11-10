@@ -56,8 +56,10 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # Build flags and ldflags mirror the "cerbos" build in .goreleaser.yml:
-# CGO_ENABLED=0 and GOAMD64=v2 (also exported in .justfile), -trimpath,
-# -s -w, and the Version/Commit/BuildDate -X flags. The values are the CI
+# CGO_ENABLED=0, -trimpath, -s -w, and the Version/Commit/BuildDate -X
+# flags. GOAMD64 is v1 because goreleaser's goamd64 target (default v1)
+# overrides the GOAMD64=v2 in its env, so upstream releases are v1; v2
+# fails to start on VMs with generic CPU models. The values are the CI
 # equivalents of goreleaser's .Version/.FullCommit/.Date; the telemetry -X
 # flags are omitted. -buildvcs=false is CI-only and keeps the build
 # independent of the Git checkout; goreleaser embeds VCS info.
@@ -67,7 +69,7 @@ build-cerbos:
   image: "$GO_IMAGE"
   variables:
     CGO_ENABLED: "0"
-    GOAMD64: "v2"
+    GOAMD64: "v1"
   script:
     - |
       mkdir -p docker/cerbos

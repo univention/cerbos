@@ -81,7 +81,7 @@ dependency proxy.
 It runs a direct `go build` with the same settings as the `cerbos` build in
 `.goreleaser.yml`:
 
-- `CGO_ENABLED=0` and `GOAMD64=v2`
+- `CGO_ENABLED=0` and `GOAMD64=v1`
 - `-trimpath`
 - `-s -w`
 - `Version`, `Commit`, and `BuildDate` linker flags
@@ -156,7 +156,7 @@ Build the binary with the same flags as CI:
 ```sh
 VERSION="$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short=8 HEAD)"
 BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-CGO_ENABLED=0 GOAMD64=v2 go build -trimpath -buildvcs=false \
+CGO_ENABLED=0 GOAMD64=v1 go build -trimpath -buildvcs=false \
   -ldflags "-s -w \
     -X github.com/cerbos/cerbos/internal/util.Version=${VERSION} \
     -X github.com/cerbos/cerbos/internal/util.Commit=$(git rev-parse HEAD) \

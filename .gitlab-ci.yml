@@ -27,6 +27,9 @@ variables:
   GO_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golang:1.27"
   GOMODCACHE: "${CI_PROJECT_DIR}/.go/mod"
   GOCACHE: "${CI_PROJECT_DIR}/.go/build"
+  # Restoring and uploading the Go caches took longer than compiling and testing.
+  FF_USE_FASTZIP: "true"
+  CACHE_COMPRESSION_LEVEL: "fastest"
 
 .go-cache:
   cache:

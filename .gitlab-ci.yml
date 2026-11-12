@@ -27,6 +27,8 @@ variables:
   GO_VERSION: "1.27.4"
   GO_IMAGE_DIGEST: "sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d"
   GO_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golang:${GO_VERSION}@${GO_IMAGE_DIGEST}"
+  # Built by ci-go-image from docker/ci-go/Dockerfile: the Go toolchain, the module cache, and a warm build cache.
+  CI_GO_IMAGE: "${CI_REGISTRY_IMAGE}/ci-go:latest"
   GOMODCACHE: "${CI_PROJECT_DIR}/.go/mod"
   GOCACHE: "${CI_PROJECT_DIR}/.go/build"
   # Restoring and uploading the Go caches took longer than compiling and testing.
@@ -74,6 +76,21 @@ workflow:
         GOMOD_CACHE_POLICY: "pull-push"
         GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# Rebuilds CI_GO_IMAGE on a protected branch when its Dockerfile changes. The child pipeline runs
+# common-ci's gitregistry buildkit job, whose hidden jobs clash with the direct flow included here.
+ci-go-image:
+  stage: ".pre"
+  variables:
+    CI_GO_IMAGE: "${CI_GO_IMAGE}"
+  trigger:
+    include:
+      - local: "ci/ci-go-image.yml"
+    strategy: "depend"
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      changes:
+        - "docker/ci-go/Dockerfile"
 
 # Release version stamp from common-ci's .tagged-release: a protected
 # "vX.Y.Z-nubusN" tag yields RELEASE_VERSION "X.Y.Z-nubusN" and

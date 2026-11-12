@@ -1,0 +1,20 @@
+---
+# SPDX-FileCopyrightText: 2026 Univention GmbH
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Child pipeline of the ci-go-image job. A separate pipeline, because common-ci's gitregistry
+# buildkit job defines the same hidden jobs as the direct flow the parent pipeline includes.
+include:
+  - project: "univention/dev/nubus-for-k8s/common-ci"
+    ref: "v1.72.0"
+    file:
+      - "defaults/stages.yaml"
+      - "jobs/container-build-buildkit.yaml"
+
+container-build:
+  variables:
+    IMAGE_NAME: "ci-go"
+    IMAGE_TAG: "${CI_GO_IMAGE}"
+    BUILD_CONTEXT: "."
+    DOCKERFILE_PATH: "docker/ci-go/Dockerfile"
+    BUILD_ARGS: "--opt build-arg:PROJECT_DIR=${CI_PROJECT_DIR}"

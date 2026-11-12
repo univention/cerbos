@@ -184,6 +184,16 @@ It uses `$GO_IMAGE` and does the following:
 The server log is kept as the `cerbos.log` artifact, also when the job fails.
 The job does not run in scheduled pipelines.
 
+## CI image
+
+`docker/ci-go/Dockerfile` builds `$CI_GO_IMAGE`, `ci-go:latest` in the project registry:
+the Go toolchain, the module cache the tests need, and a build cache of `cerbos` with the flags of `build-cerbos`.
+`ci-go-image` rebuilds it in a child pipeline, only on a protected `*-univention` branch
+and only when the Dockerfile changes.
+The child pipeline runs common-ci's gitregistry buildkit job,
+whose hidden jobs clash with the direct flow of the main pipeline.
+The Dockerfile pins the same Go image as `GO_VERSION` and `GO_IMAGE_DIGEST`; bump both together.
+
 ## Container image
 
 `container-build` uses the common-ci direct buildkit template.

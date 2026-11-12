@@ -31,7 +31,7 @@ variables:
   CACHE_COMPRESSION_LEVEL: "fastest"
   GOMOD_CACHE_POLICY: "pull"
   # Only protected refs write the build cache; workflow rules switch it to pull-push.
-  GOBUILD_CACHE_POLICY: "pull"
+  GOBUILD_CACHE_POLICY: "pull-push"
 
 .go-cache:
   cache:

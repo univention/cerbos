@@ -30,6 +30,8 @@ variables:
   FF_USE_FASTZIP: "true"
   CACHE_COMPRESSION_LEVEL: "fastest"
   GOMOD_CACHE_POLICY: "pull"
+  # Only protected refs write the build cache; workflow rules switch it to pull-push.
+  GOBUILD_CACHE_POLICY: "pull"
 
 .go-cache:
   cache:
@@ -45,6 +47,7 @@ variables:
     - key: "gobuild-${CI_JOB_NAME_SLUG}"
       paths:
         - ".go/build/"
+      policy: "$GOBUILD_CACHE_POLICY"
 
 # Replaces common-ci's shared nubus-workflow: release pipelines are driven by
 # protected "vX.Y.Z-nubusN" tags. Pushes to protected "*-univention" branches
@@ -59,7 +62,11 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "schedule-release"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      variables:
+        GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      variables:
+        GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # Release version stamp from common-ci's .tagged-release: a protected

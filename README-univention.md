@@ -151,6 +151,8 @@ the mean `go test` time per package over pipelines 467991, 468002 and 469668.
 Packages missing from the file count as one second.
 Regenerate the file when the split becomes uneven.
 Each job keeps its own build cache.
+Only pipelines on protected tags and `*-univention` branches upload it;
+merge request pipelines restore it and never upload.
 `go test` runs with `-timeout=30m` per package,
 because `internal/parser` and `internal/server` take more than
 Go's default of 10 minutes with the race detector.

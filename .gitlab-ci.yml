@@ -4,11 +4,12 @@
 
 include:
   - project: "univention/dev/nubus-for-k8s/common-ci"
-    ref: "v1.71.0"
+    ref: "v1.72.0"
     file:
       - "defaults/stages.yaml"
       - "templates/tagged-release.yaml"
-      - "jobs/container-build-external-buildkit.yaml"
+      - "jobs/container-build-direct-buildkit.yaml"
+      - "jobs/container-publish-direct.yaml"
   # Opt-in AI review of merge requests. Requires AI_REVIEW_TOKEN (api scope)
   # and OPENAI_API_KEY; the component defaults both to group variables under
   # /univention, so define them in this project when running from a personal
@@ -213,34 +214,31 @@ container-build:
       #- job: "test-cerbos"
       #  artifacts: false
 
-# Nothing leaves the project registry before the smoke test and the Go tests pass;
-# sign and attest follow through their need on push-image-external.
-push-image-external:
+# container-build pushes every image straight to nubus-dev, tested or not.
+# Only the copy to nubus waits for the smoke test and the Go tests.
+# common-ci's rule "if: $PUBLIC_RELEASE" never matches: the variable comes from
+# pre-semantic-release's dotenv, which does not exist when GitLab evaluates rules.
+promote-image-public:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
   needs:
     - job: "pre-semantic-release"
       artifacts: true
     - job: "container-build"
       artifacts: true
-    # Here rather than on container-build, so the image builds while the smoke test runs.
     - job: "smoke-cerbos"
       artifacts: false
     - job: "test-cerbos"
       artifacts: false
 
+# Signs the public image, so on a release it has to wait for promote-image-public;
+# on other refs it skips signing and need not wait for the tests.
 container-sign-external:
   needs:
     - job: "pre-semantic-release"
       artifacts: true
     - job: "container-build"
       artifacts: true
-    - job: "push-image-external"
+    - job: "promote-image-public"
       artifacts: false
-
-container-release-attestation:
-  needs:
-    - job: "pre-semantic-release"
-      artifacts: true
-    - job: "container-build"
-      artifacts: true
-    - job: "push-image-external"
-      artifacts: false
+      optional: true

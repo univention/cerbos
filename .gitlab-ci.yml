@@ -154,7 +154,7 @@ test-cerbos:
   tags:
     - "dae-l"
   timeout: "1h"
-  parallel: 4
+  parallel: 3
   # Starts the tests at once instead of after the build stage, which they do not use.
   needs: []
   variables:

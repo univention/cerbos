@@ -142,8 +142,10 @@ because `test-cerbos` has no `needs` and does not wait for the build stage.
 No job waits for them: a failing test marks the pipeline failed
 but does not hold back an image.
 
-The job runs as four parallel jobs, `test-cerbos 1/4` to `test-cerbos 4/4`,
-like upstream's six-way split in `.github/workflows/pr-test.yaml`.
+The job runs as three parallel jobs, `test-cerbos 1/3` to `test-cerbos 3/3`,
+where upstream splits six ways in `.github/workflows/pr-test.yaml`.
+`internal/server` alone takes about 330 s and keeps only 1.5 of the 4 cores busy,
+so it sets the length; more jobs would only add cache restores.
 `testsplit` assigns each job a share of the packages
 from `CI_NODE_INDEX` and `CI_NODE_TOTAL`.
 It balances the jobs with the package durations in `ci/testsplit-times.json`,

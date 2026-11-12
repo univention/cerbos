@@ -76,6 +76,7 @@ workflow:
         GOMOD_CACHE_POLICY: "pull-push"
         GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == "jlohmer/cerbos-release-pipeline-experiments"'
 
 # Rebuilds CI_GO_IMAGE on a protected branch when its Dockerfile changes. The child pipeline runs
 # common-ci's gitregistry buildkit job, whose hidden jobs clash with the direct flow included here.
@@ -92,6 +93,9 @@ ci-go-image:
       changes:
         - "docker/ci-go/Dockerfile"
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - "docker/ci-go/Dockerfile"
+    - if: '$CI_COMMIT_BRANCH == "jlohmer/cerbos-release-pipeline-experiments"'
       changes:
         - "docker/ci-go/Dockerfile"
 

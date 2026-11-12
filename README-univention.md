@@ -146,7 +146,9 @@ It balances the jobs with the package durations in `ci/testsplit-times.json`,
 taken from a single-job run (job 3277984).
 Packages missing from the file count as one second.
 Regenerate the file when the split becomes uneven.
-Each job keeps its own build cache.
+Each job keeps its own build cache and shares the module cache.
+Only pipelines on protected tags and `*-univention` branches upload either cache;
+merge request pipelines restore them and never upload.
 `go test` runs with `-timeout=30m` per package,
 because `internal/parser` and `internal/server` take more than
 Go's default of 10 minutes with the race detector.

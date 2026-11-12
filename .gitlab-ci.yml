@@ -138,6 +138,8 @@ build-cerbos:
 start-tests:
   stage: "test"
   image: "$GO_IMAGE"
+  # Starts the tests at once instead of after the build stage, which they do not use.
+  needs: []
   script:
     - "true"
   rules:
@@ -212,8 +214,6 @@ container-build:
       artifacts: true
     - job: "build-cerbos"
       artifacts: true
-    - job: "smoke-cerbos"
-      artifacts: false
       #- job: "test-cerbos"
       #  artifacts: false
 
@@ -242,6 +242,9 @@ push-image-external:
       artifacts: true
     - job: "container-build"
       artifacts: true
+    # Here rather than on container-build, so the image builds while the smoke test runs.
+    - job: "smoke-cerbos"
+      artifacts: false
     - job: "test-cerbos-passed"
       artifacts: false
       optional: true

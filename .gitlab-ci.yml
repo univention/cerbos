@@ -36,7 +36,8 @@ variables:
 
 .go-cache:
   cache:
-    - key:
+    - &gomod-cache
+      key:
         prefix: "gomod-v2"
         files:
           - "go.sum"
@@ -106,8 +107,10 @@ pre-semantic-release:
 # from pre-semantic-release's RELEASE_VERSION; the telemetry -X
 # flags are omitted. -buildvcs=false is CI-only and keeps the build
 # independent of the Git checkout; goreleaser embeds VCS info.
+# No Go build cache: on dae-l, restoring it took 109 s and the compile it saved 4 s.
 build-cerbos:
-  extends: ".go-cache"
+  cache:
+    - *gomod-cache
   stage: "build"
   image: "$GO_IMAGE"
   tags:

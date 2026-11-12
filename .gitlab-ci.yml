@@ -167,7 +167,12 @@ test-cerbos:
       testsplit split --kind=tests --index="$((CI_NODE_INDEX - 1))" --total="$CI_NODE_TOTAL" \
         --ignore-file=.ignore-packages.yaml \
         | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
-        | xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m
+        > packages.txt
+      TIMEFORMAT='%R s real, %U s user, %S s sys'
+      echo "compile:"
+      time xargs -r go test -tags=tests -race -count=1 -p 4 -run '^$' < packages.txt > /dev/null
+      echo "test:"
+      time xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m < packages.txt
   rules:
     - when: "on_success"
       #- if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'
@@ -185,6 +190,7 @@ smoke-cerbos:
   script:
     - |
       set -eu
+      echo "nproc=$(nproc) cpu.max=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null || echo none)"; grep -E "MemTotal|MemAvailable" /proc/meminfo
       ./docker/cerbos/cerbos compile internal/test/testdata/store
       # TODO add our sandbox tests here https://git.knut.univention.de/univention/dev/sandbox/cerbos-sandbox
       ./docker/cerbos/cerbos server --config=hack/dev/conf.insecure.yaml > cerbos.log 2>&1 &

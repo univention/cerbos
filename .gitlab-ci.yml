@@ -91,6 +91,9 @@ ci-go-image:
     - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       changes:
         - "docker/ci-go/Dockerfile"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - "docker/ci-go/Dockerfile"
 
 # Release version stamp from common-ci's .tagged-release: a protected
 # "vX.Y.Z-nubusN" tag yields RELEASE_VERSION "X.Y.Z-nubusN" and

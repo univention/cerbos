@@ -122,29 +122,14 @@ build-cerbos:
       when: "never"
     - when: "on_success"
 
-# One button for all test-cerbos parts, pressed automatically on a release tag;
-# allow_failure keeps other pipelines from showing as blocked when the tests
-# are not started.
-start-tests:
-  stage: "test"
-  image: "$GO_IMAGE"
-  script:
-    - "true"
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
-      when: "on_success"
-    - when: "manual"
-      allow_failure: true
-
 test-cerbos:
   extends: ".go-cache"
   stage: "test"
   image: "$GO_IMAGE"
   timeout: "1h"
   parallel: 4
-  needs:
-    - job: "start-tests"
-      artifacts: false
+  # Starts the tests at once instead of after the build stage, which they do not use.
+  needs: []
   variables:
     CGO_ENABLED: "1"
   script:
@@ -207,34 +192,14 @@ container-build:
       #- job: "test-cerbos"
       #  artifacts: false
 
-# Exists only on a release tag, so the optional need in push-image-external
-# makes publishing wait for test-cerbos there and nowhere else.
-test-cerbos-passed:
-  stage: "test"
-  image: "$GO_IMAGE"
-  variables:
-    GIT_STRATEGY: "none"
-  needs:
-    - job: "test-cerbos"
-      artifacts: false
-  script:
-    - "true"
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
-
-# Explicit needs, so publishing does not wait for test-cerbos, which stays
-# pending until start-tests is run. On a release tag it waits for
-# test-cerbos-passed; sign and attest follow through their need on
-# push-image-external.
+# Explicit needs, so publishing does not wait for test-cerbos;
+# sign and attest follow through their need on push-image-external.
 push-image-external:
   needs:
     - job: "pre-semantic-release"
       artifacts: true
     - job: "container-build"
       artifacts: true
-    - job: "test-cerbos-passed"
-      artifacts: false
-      optional: true
 
 container-sign-external:
   needs:

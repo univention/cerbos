@@ -32,10 +32,10 @@ and build its protected `*-univention` release branches.
 
 | Event | Pipeline | Jobs |
 | --- | --- | --- |
-| Protected `vX.Y.Z-nubusN` tag | Release | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests`, `test-cerbos`, `test-cerbos-passed` |
-| Merge request | Merge request | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests` (manual), `test-cerbos`, `ai-review:*` (manual) |
+| Protected `vX.Y.Z-nubusN` tag | Release | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
+| Merge request | Merge request | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos`, `ai-review:*` (manual) |
 | Push to `main` | None | None |
-| Push to a protected `*-univention` branch | Branch | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `start-tests` (manual), `test-cerbos` |
+| Push to a protected `*-univention` branch | Branch | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
 | Feature branch without a merge request | None on push | None |
 | `schedule` pipeline | Scheduled | Build, test, and container jobs are skipped |
 
@@ -97,9 +97,7 @@ and `COSIGN_*` CI/CD variables.
 3. `container-build` runs after both jobs succeed and pushes the image.
    The publish jobs copy it to `nubus-dev` and `nubus`,
    then sign and attest it.
-   `test-cerbos` runs automatically on a release tag,
-   and `push-image-external` waits for it,
-   so a failing test stops the release.
+   The tests run alongside and do not hold the image back.
 4. CI does not create a Git tag or a GitLab Release.
    The tag is created manually.
 5. `latest` is not published.
@@ -133,12 +131,10 @@ Those two packages start SeaweedFS through `ory/dockertest`, so they need
 Docker.
 The job does not use dind.
 Tests behind the `integration` tag are not run.
-The tests start when the `start-tests` job runs,
-which starts all four parts at once.
-On a protected release tag, `start-tests` runs automatically,
-and `push-image-external` waits for all four parts to pass.
-In every other pipeline, `start-tests` is manual and allowed to fail,
-so unstarted tests block neither the pipeline nor publishing.
+The tests run in every pipeline and start with it,
+because `test-cerbos` has no `needs` and does not wait for the build stage.
+No job waits for them: a failing test marks the pipeline failed
+but does not hold back an image.
 
 The job runs as four parallel jobs, `test-cerbos 1/4` to `test-cerbos 4/4`,
 like upstream's six-way split in `.github/workflows/pr-test.yaml`.
@@ -227,8 +223,7 @@ kill %1
 
 - The test job does not run the Docker-backed blob and overlay storage tests.
 - Integration tests are not run.
-- `test-cerbos` is manual except on release tags.
-  It gates publishing only on release tags,
-  so MR and branch images reach `nubus-dev` even when the Go tests fail.
+- A failing `test-cerbos` holds back no image,
+  neither in `nubus-dev` nor in `nubus`.
   A failing `smoke-cerbos` does stop the image.
 - The CI binary is built with `-buildvcs=false`, so it has no VCS stamping.

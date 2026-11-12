@@ -21,10 +21,12 @@ variables:
   # In a project without the dependency proxy, override GO_IMAGE and
   # BUILDKIT_DOCKER_PROXY, or move the project into a group with the proxy
   # enabled.
-  # Tracks the newest 1.27 patch like upstream's CI
-  # (.github/actions/setup-go/action.yaml: go-version 1.27.x, check-latest);
-  # raise the minor version when upstream's go.mod does.
-  GO_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golang:1.27"
+  # Pinned by digest: every new Go toolchain invalidates the whole build cache, and the digest is part of its key.
+  # Upstream's CI takes the newest 1.27 patch (.github/actions/setup-go/action.yaml: 1.27.x, check-latest);
+  # bump GO_VERSION and GO_IMAGE_DIGEST together, and the minor version when upstream's go.mod does.
+  GO_VERSION: "1.27.4"
+  GO_IMAGE_DIGEST: "sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d"
+  GO_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/golang:${GO_VERSION}@${GO_IMAGE_DIGEST}"
   GOMODCACHE: "${CI_PROJECT_DIR}/.go/mod"
   GOCACHE: "${CI_PROJECT_DIR}/.go/build"
   # Restoring and uploading the Go caches took longer than compiling and testing.
@@ -46,7 +48,7 @@ variables:
         - ".go/mod/"
       # build-cerbos downloads every module the tests need, so its copy of the cache is complete.
       policy: "$GOMOD_CACHE_POLICY"
-    - key: "gobuild-${CI_JOB_NAME_SLUG}"
+    - key: "gobuild-${CI_JOB_NAME_SLUG}-${GO_IMAGE_DIGEST}"
       paths:
         - ".go/build/"
       policy: "$GOBUILD_CACHE_POLICY"
@@ -192,7 +194,7 @@ test-cerbos-uncached:
   extends: "test-cerbos"
   cache:
     - *gomod-cache
-    - key: "gobuild-test-cerbos-${CI_NODE_INDEX}-${CI_NODE_TOTAL}"
+    - key: "gobuild-test-cerbos-${CI_NODE_INDEX}-${CI_NODE_TOTAL}-${GO_IMAGE_DIGEST}"
       paths:
         - ".go/build/"
       policy: "pull"

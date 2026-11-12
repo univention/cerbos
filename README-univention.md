@@ -108,8 +108,11 @@ and `COSIGN_*` CI/CD variables.
 
 ## Build job
 
-`build-cerbos` uses `$GO_IMAGE`, which defaults to `golang:1.27` from the
-dependency proxy.
+`build-cerbos` uses `$GO_IMAGE`, `golang:$GO_VERSION` from the dependency proxy,
+pinned to `$GO_IMAGE_DIGEST`.
+A new toolchain invalidates the whole Go build cache,
+so the digest is part of the cache key and changes only when someone bumps it.
+Bump `GO_VERSION` and `GO_IMAGE_DIGEST` together.
 `build-cerbos` and `test-cerbos` run on the `dae-l` runner,
 which has more CPU and memory than the default runner.
 `build-cerbos` restores only the Go module cache and compiles without a build cache,

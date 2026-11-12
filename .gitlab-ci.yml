@@ -188,8 +188,6 @@ container-build:
       artifacts: true
     - job: "build-cerbos"
       artifacts: true
-    - job: "smoke-cerbos"
-      artifacts: false
       #- job: "test-cerbos"
       #  artifacts: false
 

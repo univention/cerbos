@@ -112,6 +112,8 @@ and `COSIGN_*` CI/CD variables.
 dependency proxy.
 `build-cerbos` and `test-cerbos` run on the `dae-l` runner,
 which has more CPU and memory than the default runner.
+`build-cerbos` restores only the Go module cache and compiles without a build cache,
+because restoring that cache took longer than the compile it saved.
 It runs a direct `go build` with the same settings as the `cerbos` build in
 `.goreleaser.yml`:
 

@@ -93,9 +93,10 @@ and `COSIGN_*` CI/CD variables.
 ## Release process
 
 1. Create a protected tag matching `vX.Y.Z-nubusN`.
-2. The tag pipeline runs `build-cerbos` and then `smoke-cerbos`.
-3. `container-build` runs after both jobs succeed and pushes the image.
-   The publish jobs copy it to `nubus-dev` and `nubus`,
+2. The tag pipeline runs `build-cerbos`,
+   then `smoke-cerbos` and `container-build` side by side.
+3. `container-build` pushes the image to the project registry.
+   Once `smoke-cerbos` passes, the publish jobs copy it to `nubus-dev` and `nubus`,
    then sign and attest it.
    `test-cerbos` runs automatically on a release tag,
    and `push-image-external` waits for it,
@@ -135,6 +136,7 @@ The job does not use dind.
 Tests behind the `integration` tag are not run.
 The tests start when the `start-tests` job runs,
 which starts all four parts at once.
+`start-tests` has no `needs`, so it does not wait for the build stage.
 On a protected release tag, `start-tests` runs automatically,
 and `push-image-external` waits for all four parts to pass.
 In every other pipeline, `start-tests` is manual and allowed to fail,
@@ -174,8 +176,10 @@ The job does not run in scheduled pipelines.
 The build context is `docker/cerbos` and the Dockerfile is
 `docker/cerbos/Dockerfile`.
 The image is `$CI_REGISTRY_IMAGE/cerbos`.
-The job runs after `build-cerbos` and `smoke-cerbos` succeed.
-It does not wait for `test-cerbos`.
+The job runs after `build-cerbos` and does not wait for `smoke-cerbos`
+or `test-cerbos`.
+`push-image-external` waits for `smoke-cerbos`,
+so an image that fails the smoke test stays in the project registry.
 
 The local Dockerfile is a small adaptation of the upstream `Dockerfile.cerbos`.
 The upstream file expects goreleaser's `${TARGETPLATFORM}/cerbos` build context
@@ -230,5 +234,5 @@ kill %1
 - `test-cerbos` is manual except on release tags.
   It gates publishing only on release tags,
   so MR and branch images reach `nubus-dev` even when the Go tests fail.
-  A failing `smoke-cerbos` does stop the image.
+  A failing `smoke-cerbos` stops the publish jobs.
 - The CI binary is built with `-buildvcs=false`, so it has no VCS stamping.

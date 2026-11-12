@@ -30,8 +30,8 @@ variables:
   # Restoring and uploading the Go caches took longer than compiling and testing.
   FF_USE_FASTZIP: "true"
   CACHE_COMPRESSION_LEVEL: "fastest"
+  # Only protected refs write the Go caches; workflow rules switch both to pull-push.
   GOMOD_CACHE_POLICY: "pull"
-  # Only protected refs write the build cache; workflow rules switch it to pull-push.
   GOBUILD_CACHE_POLICY: "pull-push"
 
 .go-cache:
@@ -44,7 +44,7 @@ variables:
           - "hack/tools/testsplit/go.sum"
       paths:
         - ".go/mod/"
-      # build-cerbos is the only writer and downloads every module the tests need.
+      # build-cerbos downloads every module the tests need, so its copy of the cache is complete.
       policy: "$GOMOD_CACHE_POLICY"
     - key: "gobuild-${CI_JOB_NAME_SLUG}"
       paths:
@@ -65,9 +65,11 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+-nubus[0-9]+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       variables:
+        GOMOD_CACHE_POLICY: "pull-push"
         GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_COMMIT_BRANCH =~ /-univention$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       variables:
+        GOMOD_CACHE_POLICY: "pull-push"
         GOBUILD_CACHE_POLICY: "pull-push"
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
@@ -119,7 +121,6 @@ build-cerbos:
   variables:
     CGO_ENABLED: "0"
     GOAMD64: "v1"
-    GOMOD_CACHE_POLICY: "pull-push"
   script:
     - |
       # Fetches what the tests compile, 1.6 GB; "go mod download" fetches all workspace modules, 3.5 GB.

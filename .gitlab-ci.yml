@@ -162,6 +162,7 @@ test-cerbos:
   script:
     - |
       set -euo pipefail
+      echo "nproc=$(nproc) cpu.max=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null || echo none)"; grep -E "MemTotal|MemAvailable" /proc/meminfo
       GOWORK=off GOBIN=/tmp/bin go install -C hack/tools/testsplit
       export PATH="/tmp/bin:${PATH}"
       cp ci/testsplit-times.json test-times.json

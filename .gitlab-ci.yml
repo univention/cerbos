@@ -161,6 +161,7 @@ test-cerbos:
   needs: []
   variables:
     CGO_ENABLED: "1"
+    GODEBUG: "gocachetest=1"
   script:
     - |
       set -euo pipefail

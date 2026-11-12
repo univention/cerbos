@@ -78,7 +78,8 @@ artifacts.software-univention.de/nubus-dev/images/cerbos:<tag>
 
 `nubus-dev` also receives images whose tests fail.
 On a release tag, `promote-image-public` copies the image to `nubus/images/cerbos`
-once `smoke-cerbos` and `test-cerbos` pass.
+without waiting for the tests.
+The image reaches users only after Guardian and nubus-helm integrate and release it.
 `container-sign-external` signs the public image,
 and `container-release-attestation` attests both copies.
 These jobs need the `EXTERNAL_REGISTRY_ROBOT_TOKEN`
@@ -95,11 +96,10 @@ and `COSIGN_*` CI/CD variables.
 1. Create a protected tag matching `vX.Y.Z-nubusN`.
 2. The tag pipeline runs `build-cerbos`,
    then `smoke-cerbos` and `container-build` side by side.
-3. `container-build` pushes the image to `nubus-dev`.
-   Once `smoke-cerbos` and `test-cerbos` pass,
+3. `container-build` pushes the image to `nubus-dev`,
    `promote-image-public` copies it to `nubus`,
    and the publish jobs sign and attest it.
-   A failing test stops the release.
+   The tests run alongside and do not hold the image back.
 4. CI does not create a Git tag or a GitLab Release.
    The tag is created manually.
 5. `latest` is not published.
@@ -137,7 +137,8 @@ The job does not use dind.
 Tests behind the `integration` tag are not run.
 The tests run in every pipeline and start with it,
 because `test-cerbos` has no `needs` and does not wait for the build stage.
-On a release tag, `promote-image-public` waits for all four parts to pass.
+No job waits for them: a failing test marks the pipeline failed
+but does not hold back an image.
 
 The job runs as four parallel jobs, `test-cerbos 1/4` to `test-cerbos 4/4`,
 like upstream's six-way split in `.github/workflows/pr-test.yaml`.
@@ -235,6 +236,6 @@ kill %1
 
 - The test job does not run the Docker-backed blob and overlay storage tests.
 - Integration tests are not run.
-- A failing `test-cerbos` or `smoke-cerbos` keeps the image out of `nubus`,
-  not out of `nubus-dev`.
+- A failing `test-cerbos` or `smoke-cerbos` holds back no image,
+  neither in `nubus-dev` nor in `nubus`.
 - The CI binary is built with `-buildvcs=false`, so it has no VCS stamping.

@@ -145,6 +145,13 @@ because `test-cerbos` has no `needs` and does not wait for the build stage.
 No job waits for them: a failing test marks the pipeline failed
 but does not hold back an image.
 
+`test-cerbos` reuses Go's cached test results,
+so a package whose code, test data and environment are unchanged does not run again.
+Go keys a cached result on the size and modification time of each file a test opens,
+and a fresh clone gives every file a new modification time,
+so the job first sets each tracked file's modification time from its Git blob hash.
+`test-cerbos-uncached` is a manual job that runs every test with `-count=1`.
+
 The job runs as three parallel jobs, `test-cerbos 1/3` to `test-cerbos 3/3`,
 where upstream splits six ways in `.github/workflows/pr-test.yaml`.
 `internal/server` alone takes about 330 s and keeps only 1.5 of the 4 cores busy,

@@ -167,17 +167,36 @@ test-cerbos:
       GOWORK=off GOBIN=/tmp/bin go install -C hack/tools/testsplit
       export PATH="/tmp/bin:${PATH}"
       cp ci/testsplit-times.json test-times.json
+      # Go keys a cached test result on the size and mtime of every file the test opens, and a fresh
+      # clone gives every file a new mtime; derive it from the blob hash so it changes with the content.
+      git ls-files -s | while read -r _ hash _ path; do touch -h -m -d "@$((946684800 + 16#${hash:0:7}))" "$path"; done
+      find . -path ./.git -prune -o -path ./.go -prune -o -type d -exec touch -m -d @946684800 {} +
       # The blob and overlay tests, and upstream's integration-tagged tests,
       # start containers through dockertest; the runner has no Docker.
       testsplit split --kind=tests --index="$((CI_NODE_INDEX - 1))" --total="$CI_NODE_TOTAL" \
         --ignore-file=.ignore-packages.yaml \
         | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
-        | xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m
+        | xargs -r go test -tags=tests -race -failfast -p 4 -timeout=30m
   rules:
     - when: "on_success"
       #- if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'
       #  when: "never"
       #- when: "on_success"
+
+# Runs every test again, ignoring the cached results test-cerbos reuses.
+test-cerbos-uncached:
+  extends: "test-cerbos"
+  cache:
+    - *gomod-cache
+    - key: "gobuild-test-cerbos-${CI_NODE_INDEX}-${CI_NODE_TOTAL}-${GO_IMAGE_DIGEST}"
+      paths:
+        - ".go/build/"
+      policy: "pull"
+  variables:
+    GOFLAGS: "-count=1"
+  rules:
+    - when: "manual"
+      allow_failure: true
 
 # Exercises the built binary rather than the sources: the policy test suites
 # through "cerbos compile", then a server start with a health check.

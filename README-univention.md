@@ -22,9 +22,9 @@ The upstream `README.md` remains the reference for Cerbos itself.
 
 ## Pipeline overview
 
-The pipeline uses `univention/dev/nubus-for-k8s/common-ci` v1.71.0 for stages,
+The pipeline uses `univention/dev/nubus-for-k8s/common-ci` v1.72.0 for stages,
 the `.tagged-release` version stamp,
-and the buildkit container build with publishing to
+and the direct buildkit container build with publishing to
 `artifacts.software-univention.de`.
 The local `workflow:` replaces the shared `nubus-workflow` so the fork can
 release from protected `vX.Y.Z-nubusN` tags
@@ -32,10 +32,10 @@ and build its protected `*-univention` release branches.
 
 | Event | Pipeline | Jobs |
 | --- | --- | --- |
-| Protected `vX.Y.Z-nubusN` tag | Release | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
-| Merge request | Merge request | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos`, `ai-review:*` (manual) |
+| Protected `vX.Y.Z-nubusN` tag | Release | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `promote-image-public`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
+| Merge request | Merge request | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `container-sign-external`, `container-release-attestation`, `test-cerbos`, `ai-review:*` (manual) |
 | Push to `main` | None | None |
-| Push to a protected `*-univention` branch | Branch | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `push-image-external`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
+| Push to a protected `*-univention` branch | Branch | `pre-semantic-release`, `build-cerbos`, `smoke-cerbos`, `container-build`, `container-sign-external`, `container-release-attestation`, `test-cerbos` |
 | Feature branch without a merge request | None on push | None |
 | `schedule` pipeline | Scheduled | Build, test, and container jobs are skipped |
 
@@ -68,17 +68,18 @@ or `INITIAL_VERSION` (`0.57.0`) before the first release tag exists.
 On a release tag, `pre-semantic-release` fails
 unless the upstream tag `vX.Y.Z` is an ancestor of the tagged commit.
 
-`container-build` pushes to the project container registry
+`container-build` pushes straight to `nubus-dev`
 with the tag `RELEASE_VERSION`,
 and on a non-tag ref also with the ref slug:
 
 ```text
-$CI_REGISTRY_IMAGE/cerbos:<tag>
+artifacts.software-univention.de/nubus-dev/images/cerbos:<tag>
 ```
 
-`push-image-external` copies the image to
-`artifacts.software-univention.de/nubus-dev/images/cerbos:<RELEASE_VERSION>`,
-and on a release tag also to `nubus/images/cerbos`.
+`nubus-dev` also receives images whose tests fail.
+On a release tag, `promote-image-public` copies the image to `nubus/images/cerbos`
+without waiting for the tests.
+The image reaches users only after Guardian and nubus-helm integrate and release it.
 `container-sign-external` signs the public image,
 and `container-release-attestation` attests both copies.
 These jobs need the `EXTERNAL_REGISTRY_ROBOT_TOKEN`
@@ -94,9 +95,9 @@ and `COSIGN_*` CI/CD variables.
 
 1. Create a protected tag matching `vX.Y.Z-nubusN`.
 2. The tag pipeline runs `build-cerbos` and then `smoke-cerbos`.
-3. `container-build` runs after both jobs succeed and pushes the image.
-   The publish jobs copy it to `nubus-dev` and `nubus`,
-   then sign and attest it.
+3. `container-build` runs after both jobs succeed and pushes the image to `nubus-dev`,
+   `promote-image-public` copies it to `nubus`,
+   and the publish jobs sign and attest it.
    The tests run alongside and do not hold the image back.
 4. CI does not create a Git tag or a GitLab Release.
    The tag is created manually.
@@ -166,12 +167,19 @@ The job does not run in scheduled pipelines.
 
 ## Container image
 
-`container-build` uses the common-ci buildkit template.
+`container-build` uses the common-ci direct buildkit template.
 The build context is `docker/cerbos` and the Dockerfile is
 `docker/cerbos/Dockerfile`.
-The image is `$CI_REGISTRY_IMAGE/cerbos`.
+The image is `artifacts.software-univention.de/nubus-dev/images/cerbos`.
 The job runs after `build-cerbos` and `smoke-cerbos` succeed.
 It does not wait for `test-cerbos`.
+
+The fork overrides two parts of common-ci's direct publish jobs.
+`promote-image-public` gets an explicit tag rule,
+because the shared rule `if: $PUBLIC_RELEASE` reads a dotenv variable
+that does not exist yet when GitLab evaluates rules.
+`container-sign-external` needs `promote-image-public`,
+because it signs the public image, which has to be copied first.
 
 The local Dockerfile is a small adaptation of the upstream `Dockerfile.cerbos`.
 The upstream file expects goreleaser's `${TARGETPLATFORM}/cerbos` build context

@@ -150,7 +150,7 @@ like upstream's six-way split in `.github/workflows/pr-test.yaml`.
 `testsplit` assigns each job a share of the packages
 from `CI_NODE_INDEX` and `CI_NODE_TOTAL`.
 It balances the jobs with the package durations in `ci/testsplit-times.json`,
-taken from a single-job run (job 3277984).
+the mean `go test` time per package over pipelines 467991, 468002 and 469668.
 Packages missing from the file count as one second.
 Regenerate the file when the split becomes uneven.
 Each job keeps its own build cache and shares the module cache.

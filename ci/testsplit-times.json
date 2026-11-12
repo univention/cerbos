@@ -1,180 +1,180 @@
 {
   "tests": [
     {
-      "package": "github.com/cerbos/cerbos/internal/parser",
-      "time": 1135.086
-    },
-    {
       "package": "github.com/cerbos/cerbos/internal/server",
-      "time": 984.713
-    },
-    {
-      "package": "github.com/cerbos/cerbos/internal/audit/file",
-      "time": 526.509
+      "time": 276.453
     },
     {
       "package": "github.com/cerbos/cerbos/internal/engine",
-      "time": 239.289
+      "time": 159.398
+    },
+    {
+      "package": "github.com/cerbos/cerbos/internal/audit/file",
+      "time": 124.218
     },
     {
       "package": "github.com/cerbos/cerbos/private/ruletable/compile",
-      "time": 123.544
+      "time": 117.074
     },
     {
       "package": "github.com/cerbos/cerbos/internal/verify",
-      "time": 49.394
+      "time": 38.711
     },
     {
       "package": "github.com/cerbos/cerbos/pkg/cerbos",
-      "time": 29.112
+      "time": 25.013
     },
     {
       "package": "github.com/cerbos/cerbos/internal/storage/hub",
-      "time": 23.936
+      "time": 21.868
+    },
+    {
+      "package": "github.com/cerbos/cerbos/internal/parser",
+      "time": 21.789
     },
     {
       "package": "github.com/cerbos/cerbos/internal/ruletable",
-      "time": 22.928
+      "time": 17.177
     },
     {
       "package": "github.com/cerbos/cerbos/internal/audit",
-      "time": 12.336
+      "time": 11.556
     },
     {
       "package": "github.com/cerbos/cerbos/private/verify",
-      "time": 11.012
+      "time": 9.223
     },
     {
       "package": "github.com/cerbos/cerbos/internal/storage/index",
-      "time": 10.169
+      "time": 8.319
     },
     {
       "package": "github.com/cerbos/cerbos/internal/compile",
-      "time": 8.454
-    },
-    {
-      "package": "github.com/cerbos/cerbos/internal/storage/db/sqlite3",
-      "time": 5.99
+      "time": 8.058
     },
     {
       "package": "github.com/cerbos/cerbos/internal/inspect",
-      "time": 5.927
+      "time": 4.637
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/telemetry",
-      "time": 5.568
+      "package": "github.com/cerbos/cerbos/internal/storage/db/sqlite3",
+      "time": 4.588
     },
     {
       "package": "github.com/cerbos/cerbos/internal/auxdata",
-      "time": 4.98
+      "time": 4.475
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/ruletable/planner",
-      "time": 4.038
+      "package": "github.com/cerbos/cerbos/internal/telemetry",
+      "time": 4.242
     },
     {
       "package": "github.com/cerbos/cerbos/internal/schema",
-      "time": 3.904
+      "time": 3.626
+    },
+    {
+      "package": "github.com/cerbos/cerbos/internal/ruletable/planner",
+      "time": 3.252
     },
     {
       "package": "github.com/cerbos/cerbos/schema",
-      "time": 3.685
+      "time": 2.649
     },
     {
       "package": "github.com/cerbos/cerbos/internal/storage/disk",
-      "time": 3.08
-    },
-    {
-      "package": "github.com/cerbos/cerbos/cmd/cerbos/repl/internal",
-      "time": 3.024
+      "time": 2.592
     },
     {
       "package": "github.com/cerbos/cerbos/internal/verify/junit",
-      "time": 2.68
+      "time": 2.287
     },
     {
       "package": "github.com/cerbos/cerbos/internal/storage/db/internal",
-      "time": 2.229
+      "time": 2.107
+    },
+    {
+      "package": "github.com/cerbos/cerbos/cmd/cerbos/repl/internal",
+      "time": 2.021
     },
     {
       "package": "github.com/cerbos/cerbos/internal/policy",
-      "time": 2.138
-    },
-    {
-      "package": "github.com/cerbos/cerbos/internal/conditions",
-      "time": 1.594
+      "time": 2.013
     },
     {
       "package": "github.com/cerbos/cerbos/internal/audit/kafka",
-      "time": 1.526
+      "time": 1.672
     },
     {
-      "package": "github.com/cerbos/cerbos/cmd/cerbos/healthcheck",
-      "time": 1.499
-    },
-    {
-      "package": "github.com/cerbos/cerbos/internal/storage",
-      "time": 1.485
+      "package": "github.com/cerbos/cerbos/internal/conditions",
+      "time": 1.633
     },
     {
       "package": "github.com/cerbos/cerbos/internal/config",
-      "time": 1.473
+      "time": 1.416
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/storage/db/mysql",
-      "time": 1.33
+      "package": "github.com/cerbos/cerbos/internal/storage",
+      "time": 1.416
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/ruletable/index",
-      "time": 1.294
-    },
-    {
-      "package": "github.com/cerbos/cerbos/cmd/cerbosctl/store/export/internal",
-      "time": 1.268
-    },
-    {
-      "package": "github.com/cerbos/cerbos/internal/validator",
-      "time": 1.259
+      "package": "github.com/cerbos/cerbos/cmd/cerbos/healthcheck",
+      "time": 1.385
     },
     {
       "package": "github.com/cerbos/cerbos/internal/audit/hub",
-      "time": 1.244
+      "time": 1.225
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/namer",
-      "time": 1.196
+      "package": "github.com/cerbos/cerbos/internal/ruletable/index",
+      "time": 1.224
     },
     {
-      "package": "github.com/cerbos/cerbos/cmd/cerbosctl/get/internal/policy",
+      "package": "github.com/cerbos/cerbos/internal/storage/db/mysql",
+      "time": 1.183
+    },
+    {
+      "package": "github.com/cerbos/cerbos/cmd/cerbosctl/store/export/internal",
       "time": 1.182
     },
     {
-      "package": "github.com/cerbos/cerbos/internal/conditions/types",
-      "time": 1.171
+      "package": "github.com/cerbos/cerbos/internal/validator",
+      "time": 1.154
+    },
+    {
+      "package": "github.com/cerbos/cerbos/cmd/cerbosctl/get/internal/policy",
+      "time": 1.132
     },
     {
       "package": "github.com/cerbos/cerbos/internal/util",
-      "time": 1.161
+      "time": 1.102
     },
     {
       "package": "github.com/cerbos/cerbos/internal/evaluator",
-      "time": 1.117
+      "time": 1.087
+    },
+    {
+      "package": "github.com/cerbos/cerbos/internal/namer",
+      "time": 1.087
+    },
+    {
+      "package": "github.com/cerbos/cerbos/internal/conditions/types",
+      "time": 1.075
     },
     {
       "package": "github.com/cerbos/cerbos/internal/outputcolor",
-      "time": 1.104
+      "time": 1.062
     },
     {
       "package": "github.com/cerbos/cerbos/internal/ruletable/internal",
-      "time": 1.083
+      "time": 1.051
     },
     {
       "package": "github.com/cerbos/cerbos/internal/conditions/crosspath",
-      "time": 1.07
+      "time": 1.038
     },
     {
       "package": "github.com/cerbos/cerbos/internal/policy/scopeperms",
-      "time": 1.056
+      "time": 1.031
     }
   ]
 }

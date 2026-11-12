@@ -172,16 +172,35 @@ test-cerbos:
         --ignore-file=.ignore-packages.yaml \
         | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
         > packages.txt
+      # Go keys a cached test result on the size and mtime of every file the test opens, and a fresh
+      # clone gives every file a new mtime; derive it from the blob hash so it changes with the content.
+      git ls-files -s | while read -r _ hash _ path; do touch -h -m -d "@$((946684800 + 16#${hash:0:7}))" "$path"; done
+      find . -path ./.git -prune -o -path ./.go -prune -o -type d -exec touch -m -d @946684800 {} +
       TIMEFORMAT='%R s real, %U s user, %S s sys'
       echo "compile:"
       time xargs -r go test -tags=tests -race -count=1 -p 4 -run '^$' < packages.txt > /dev/null
       echo "test:"
-      time xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m < packages.txt
+      time xargs -r go test -tags=tests -race -failfast -p 4 -timeout=30m < packages.txt
   rules:
     - when: "on_success"
       #- if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'
       #  when: "never"
       #- when: "on_success"
+
+# Runs every test again, ignoring the cached results test-cerbos reuses.
+test-cerbos-uncached:
+  extends: "test-cerbos"
+  cache:
+    - *gomod-cache
+    - key: "gobuild-test-cerbos-${CI_NODE_INDEX}-${CI_NODE_TOTAL}"
+      paths:
+        - ".go/build/"
+      policy: "pull"
+  variables:
+    GOFLAGS: "-count=1"
+  rules:
+    - when: "manual"
+      allow_failure: true
 
 # Exercises the built binary rather than the sources: the policy test suites
 # through "cerbos compile", then a server start with a health check.

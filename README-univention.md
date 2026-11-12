@@ -110,6 +110,8 @@ and `COSIGN_*` CI/CD variables.
 
 `build-cerbos` uses `$GO_IMAGE`, which defaults to `golang:1.27` from the
 dependency proxy.
+`build-cerbos` and `test-cerbos` run on the `dae-l` runner,
+which has more CPU and memory than the default runner.
 It runs a direct `go build` with the same settings as the `cerbos` build in
 `.goreleaser.yml`:
 

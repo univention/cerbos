@@ -227,7 +227,7 @@ Run the same test selection:
 GOWORK=off go install -C hack/tools/testsplit
 "$(go env GOPATH)/bin/testsplit" split --kind=tests --index=0 --total=1 --ignore-file=.ignore-packages.yaml \
   | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
-  | xargs -r go test -tags=tests -race -failfast -count=1 -p 4 -timeout=30m
+  | xargs -r go test -tags=tests -race -count=1 -p 4 -timeout=30m
 ```
 
 Run the smoke checks against the built binary:

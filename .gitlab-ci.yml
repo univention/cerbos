@@ -176,7 +176,7 @@ test-cerbos:
       testsplit split --kind=tests --index="$((CI_NODE_INDEX - 1))" --total="$CI_NODE_TOTAL" \
         --ignore-file=.ignore-packages.yaml \
         | grep -v -E '^github.com/cerbos/cerbos/internal/storage/(blob|overlay|git|db|db/postgres)$' \
-        | xargs -r go test -tags=tests -race -failfast -p 4 -timeout=30m
+        | xargs -r go test -tags=tests -race -p 4 -timeout=30m
   rules:
     - when: "on_success"
       #- if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "manual"'

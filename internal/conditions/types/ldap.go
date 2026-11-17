@@ -47,6 +47,9 @@ const (
 	ldapDNScopeChildren = "scopeChildren"
 	ldapDNScopeSubtree  = "scopeSubtree"
 
+	ldapDNScopeAncestor  = "scopeAncestor"
+	ldapDNScopeHierarchy = "scopeHierarchy"
+
 	ldapDNListFn              = "ldapDNList"
 	ldapDNListTypeName        = "cerbos.lib.ldapList"
 	ldapDNListContains        = "hasDN"
@@ -174,6 +177,22 @@ var (
 			),
 		),
 
+		newFunction(ldapDNScopeAncestor,
+			decls.MemberOverload(
+				"ldapDN_"+ldapDNScopeAncestor,
+				[]*types.Type{LDAPDNType, LDAPDNType},
+				types.BoolType,
+			),
+		),
+
+		newFunction(ldapDNScopeHierarchy,
+			decls.MemberOverload(
+				"ldapDN_"+ldapDNScopeHierarchy,
+				[]*types.Type{LDAPDNType, LDAPDNType},
+				types.BoolType,
+			),
+		),
+
 		newFunction(overloads.Size,
 			decls.MemberOverload(fmt.Sprintf("%s_size", ldapDNFn),
 				[]*types.Type{LDAPDNType},
@@ -285,6 +304,10 @@ var (
 		ldapDNScopeOneLevel: ldapDNImmediateParentOfFn,
 		ldapDNScopeChildren: ldapDNAncestorOfFn,
 		ldapDNScopeSubtree:  ldapDNIsOrAncestorOfFn,
+
+		// Not RFC 4511 scopes, but named alike, with the receiver as the base.
+		ldapDNScopeAncestor:  ldapDNDescendentOfFn,
+		ldapDNScopeHierarchy: ldapDNOverlapsFn,
 	}
 )
 
@@ -531,6 +554,7 @@ func ldapDNSiblingOfFn(h LDAPHierarchy, path ref.Val) ref.Val {
 	)
 }
 
+// ldapDNOverlapsFn matches equal DNs too, like hierarchy overlaps.
 func ldapDNOverlapsFn(h LDAPHierarchy, path ref.Val) ref.Val {
 	other, err := toLDAP(path)
 	if err != nil {
@@ -538,7 +562,8 @@ func ldapDNOverlapsFn(h LDAPHierarchy, path ref.Val) ref.Val {
 	}
 
 	return types.Bool(
-		isLDAPDNAncestorOf(h, other) ||
+		dnEqual(h, other) ||
+			isLDAPDNAncestorOf(h, other) ||
 			isLDAPDNAncestorOf(other, h),
 	)
 }

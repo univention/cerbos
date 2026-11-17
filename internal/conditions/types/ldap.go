@@ -325,6 +325,11 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("invalid LDAP DN: %v", err)
 		}
+		// The empty DN is the root of every DN, so an empty attribute
+		// would match everything.
+		if len(dn.RDNs) == 0 {
+			return types.NewErr("invalid LDAP DN: empty DN")
+		}
 
 		h, err := newLDAPHierarchy(dn)
 		if err != nil {
@@ -341,7 +346,8 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 
 // LDAPHierarchy represents an LDAP Distinguished Name for hierarchy operations.
 // Build it only with newLDAPHierarchy: a value without rdnKeys acts as the root
-// DN, an ancestor of every DN.
+// DN, an ancestor of every DN. ldapDN() rejects the empty DN; only
+// commonAncestors returns it, for DNs without a common ancestor.
 type LDAPHierarchy struct {
 	dn *ldapv3.DN
 	// rdnKeys holds, for each RDN, its sorted and deduplicated normalized

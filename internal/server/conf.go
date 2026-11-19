@@ -35,7 +35,7 @@ const (
 	defaultMaxResourcesPerRequest   = 50
 	defaultRawAdminPasswordHash     = "$2y$10$VlPwcwpgcGZ5KjTaN1Pzk.vpFiQVG6F2cSWzQa9RtrNo3IacbzsEi" //nolint:gosec
 	defaultUDSFileMode              = "0o766"
-	requestItemsMax                 = 500
+	requestItemsMax                 = 4000
 )
 
 var (

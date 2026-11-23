@@ -116,6 +116,43 @@ func canonicalAttrType(attrType string) string {
 	return t
 }
 
+// isAttrType reports whether t, as returned by canonicalAttrType, is a name or
+// a numeric OID as RFC 4512 section 1.4 defines them. Any other type could
+// contain "=", and then two different type and value pairs give the same key.
+func isAttrType(t string) bool {
+	if t == "" {
+		return false
+	}
+
+	if t[0] >= 'a' && t[0] <= 'z' {
+		for i := 1; i < len(t); i++ {
+			c := t[i]
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	if !strings.Contains(t, ".") {
+		return false
+	}
+
+	for arc := range strings.SplitSeq(t, ".") {
+		if arc == "" || (len(arc) > 1 && arc[0] == '0') {
+			return false
+		}
+		for i := range len(arc) {
+			if arc[i] < '0' || arc[i] > '9' {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 // prepareAttrValue applies the LDAP string preparation of RFC 4518 to an
 // attribute value, so that values the directory considers equal compare equal.
 func prepareAttrValue(attrType, value string) (string, error) {

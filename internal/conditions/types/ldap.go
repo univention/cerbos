@@ -361,6 +361,10 @@ func newLDAPHierarchy(dn *ldapv3.DN) (LDAPHierarchy, error) {
 		keys := make([]string, len(rdn.Attributes))
 		for j, attr := range rdn.Attributes {
 			attrType := canonicalAttrType(attr.Type)
+			if !isAttrType(attrType) {
+				return LDAPHierarchy{}, fmt.Errorf("invalid attribute type %q", attr.Type)
+			}
+
 			value, err := prepareAttrValue(attrType, attr.Value)
 			if err != nil {
 				return LDAPHierarchy{}, fmt.Errorf("attribute %q: %w", attr.Type, err)

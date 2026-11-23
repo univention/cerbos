@@ -3,6 +3,18 @@
 This file documents the changes in this fork and the GitLab pipeline.
 The upstream `README.md` remains the reference for Cerbos itself.
 
+## Changes to Cerbos
+
+- The `ldapDN()` and `ldapDNList()` functions for conditions
+  compare LDAP DNs.
+  For the functions, the LDAP schema that they read from the engine globals,
+  and the upstream files that they change,
+  see [LDAP DN functions](univention/ldap-dn.md).
+- The `requestItemsMax` constant in the `internal/server/conf.go` file
+  is 4,000, where upstream has 500.
+  It's the upper bound for the `maxActionsPerResource`
+  and `maxResourcesPerRequest` settings.
+
 ## Workflow
 
 - Mirror upstream Cerbos into our GitLab
@@ -250,6 +262,7 @@ kill %1
 - `ci/testsplit-times.json`: package test durations for the `test-cerbos` split.
 - `univention/tests/`: policies and test suites,
   run by `smoke-cerbos`.
+- `univention/ldap-dn.md`: reference for the LDAP DN functions.
 
 ## Notes and limits
 

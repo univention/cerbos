@@ -345,33 +345,12 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 }
 
 // LDAPHierarchy represents an LDAP Distinguished Name for hierarchy operations.
-// Build it only with newLDAPHierarchy: a value without rdnKeys acts as the root
-// DN, an ancestor of every DN. ldapDN() rejects the empty DN; only
-// commonAncestors returns it, for DNs without a common ancestor.
 type LDAPHierarchy struct {
 	dn *ldapv3.DN
-	// rdnKeys holds, for each RDN, its sorted and deduplicated normalized
-	// type=value pairs. All comparisons use these instead of dn.
-	rdnKeys [][]string
 }
 
 func newLDAPHierarchy(dn *ldapv3.DN) (LDAPHierarchy, error) {
-	rdnKeys := make([][]string, len(dn.RDNs))
-	for i, rdn := range dn.RDNs {
-		keys := make([]string, len(rdn.Attributes))
-		for j, attr := range rdn.Attributes {
-			attrType := canonicalAttrType(attr.Type)
-			value, err := prepareAttrValue(attrType, attr.Value)
-			if err != nil {
-				return LDAPHierarchy{}, fmt.Errorf("attribute %q: %w", attr.Type, err)
-			}
-			keys[j] = attrType + "=" + value
-		}
-		slices.Sort(keys)
-		rdnKeys[i] = slices.Compact(keys)
-	}
-
-	return LDAPHierarchy{dn: dn, rdnKeys: rdnKeys}, nil
+	return LDAPHierarchy{dn: dn}, nil
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -487,24 +466,18 @@ func ldapDNCommonAncestorsFn(h LDAPHierarchy, path ref.Val) ref.Val {
 	}
 
 	// Find the longest common suffix of RDNs (rightmost = ancestor in LDAP).
-	minLen := min(len(other.rdnKeys), len(h.rdnKeys))
+	hRDNs, otherRDNs := h.dn.RDNs, other.dn.RDNs
+	minLen := min(len(otherRDNs), len(hRDNs))
 
 	commonLen := 0
 	for commonLen < minLen {
-		hIdx := len(h.rdnKeys) - 1 - commonLen
-		otherIdx := len(other.rdnKeys) - 1 - commonLen
-		if !slices.Equal(h.rdnKeys[hIdx], other.rdnKeys[otherIdx]) {
+		if !hRDNs[len(hRDNs)-1-commonLen].EqualFold(otherRDNs[len(otherRDNs)-1-commonLen]) {
 			break
 		}
 		commonLen++
 	}
 
-	start := len(h.rdnKeys) - commonLen
-
-	return LDAPHierarchy{
-		dn:      &ldapv3.DN{RDNs: slices.Clone(h.dn.RDNs[start:])},
-		rdnKeys: h.rdnKeys[start:],
-	}
+	return LDAPHierarchy{dn: &ldapv3.DN{RDNs: slices.Clone(hRDNs[len(hRDNs)-commonLen:])}}
 }
 
 func ldapDNDescendentOfFn(h LDAPHierarchy, path ref.Val) ref.Val {
@@ -548,15 +521,15 @@ func ldapDNSiblingOfFn(h LDAPHierarchy, path ref.Val) ref.Val {
 		return err
 	}
 
-	if len(h.rdnKeys) != len(other.rdnKeys) || len(h.rdnKeys) == 0 {
+	if len(h.dn.RDNs) != len(other.dn.RDNs) || len(h.dn.RDNs) == 0 {
 		return types.Bool(false)
 	}
 
 	// Siblings have different leftmost RDNs (a DN is not a sibling of itself)
 	// and share the same parent path.
 	return types.Bool(
-		!slices.Equal(h.rdnKeys[0], other.rdnKeys[0]) &&
-			rdnsEqual(h.rdnKeys[1:], other.rdnKeys[1:]),
+		!h.dn.RDNs[0].EqualFold(other.dn.RDNs[0]) &&
+			(&ldapv3.DN{RDNs: h.dn.RDNs[1:]}).EqualFold(&ldapv3.DN{RDNs: other.dn.RDNs[1:]}),
 	)
 }
 
@@ -584,11 +557,7 @@ func toLDAP(v ref.Val) (LDAPHierarchy, ref.Val) {
 }
 
 func dnEqual(a, b LDAPHierarchy) bool {
-	return rdnsEqual(a.rdnKeys, b.rdnKeys)
-}
-
-func rdnsEqual(a, b [][]string) bool {
-	return slices.EqualFunc(a, b, slices.Equal[[]string])
+	return a.dn.EqualFold(b.dn)
 }
 
 // LDAPDNList is a collection of parsed LDAP Distinguished Names for use in
@@ -835,10 +804,5 @@ func ldapDNListAllDescendentOfFn(l LDAPDNList, v ref.Val) ref.Val {
 // In LDAP, the rightmost RDNs are the ancestors (e.g., dc=com is above dc=example,dc=com).
 // A DN is not considered an ancestor of itself.
 func isLDAPDNAncestorOf(parent, child LDAPHierarchy) bool {
-	offset := len(child.rdnKeys) - len(parent.rdnKeys)
-	if offset <= 0 {
-		return false
-	}
-
-	return rdnsEqual(parent.rdnKeys, child.rdnKeys[offset:])
+	return parent.dn.AncestorOfFold(child.dn)
 }

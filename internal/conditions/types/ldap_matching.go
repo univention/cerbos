@@ -13,9 +13,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// attrTypeOIDs maps the lowercase names of the attribute types defined in
-// RFC 4519 and RFC 4524, and of the other attribute types used in RDNs on UCS,
-// to their OIDs, so that cn, commonName and 2.5.4.3 compare equal.
+// attrTypeOIDs maps the lowercase names of a subset of the attribute types
+// defined in RFC 4519 and RFC 4524, and of the other attribute types used in
+// RDNs on UCS, to their OIDs, so that cn, commonName and 2.5.4.3 compare equal.
+// A type that is not listed compares by its lowercase name.
 var attrTypeOIDs = map[string]string{
 	"cn":                     "2.5.4.3",
 	"commonname":             "2.5.4.3",

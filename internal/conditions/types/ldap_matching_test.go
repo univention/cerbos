@@ -13,10 +13,6 @@ import (
 
 func TestPrepareASCIIAttrValueMatchesUnicodePath(t *testing.T) {
 	const alphabet = "aZz09 -_.\t\n\v\f\r\x00\x01\x08\x0e\x1f\x7f"
-	caseIgnore := "2.5.4.3"
-	caseExact := "1.3.6.1.4.1.10176.4204.1.1"
-	require.False(t, caseExactAttrs[caseIgnore])
-	require.True(t, caseExactAttrs[caseExact])
 
 	rng := rand.New(rand.NewPCG(1, 2))
 	values := []string{"", " ", "  a  ", "A\tB", "a\x00 \x01b", "Domain  Admins", "\x7f"}
@@ -28,13 +24,13 @@ func TestPrepareASCIIAttrValueMatchesUnicodePath(t *testing.T) {
 		values = append(values, string(b))
 	}
 
-	for _, attrType := range []string{caseIgnore, caseExact} {
+	for _, foldCase := range []bool{true, false} {
 		for _, v := range values {
-			want, err := prepareUnicodeAttrValue(attrType, v)
+			want, err := prepareUnicodeAttrValue(v, foldCase)
 			require.NoError(t, err)
-			have, ok := prepareASCIIAttrValue(v, foldsCase(attrType))
+			have, ok := prepareASCIIAttrValue(v, foldCase)
 			require.True(t, ok)
-			require.Equal(t, want, have, "attrType=%s value=%q", attrType, v)
+			require.Equal(t, want, have, "foldCase=%v value=%q", foldCase, v)
 		}
 	}
 }
@@ -51,11 +47,11 @@ func TestLDAPDNCacheStoresOnlyValidDNs(t *testing.T) {
 	invalid := "cn=\uE000,dc=com"
 
 	first := unaryLDAPDNFnImpl(types.String(valid))
-	require.True(t, ldapDNCache.Has(valid))
+	require.True(t, ldapDNCache.Has(ldapDNCacheKey{schema: defaultLDAPSchema, dn: valid}))
 	require.Equal(t, types.True, first.Equal(unaryLDAPDNFnImpl(types.String(valid))))
 
 	for range 2 {
 		require.True(t, types.IsError(unaryLDAPDNFnImpl(types.String(invalid))))
 	}
-	require.False(t, ldapDNCache.Has(invalid))
+	require.False(t, ldapDNCache.Has(ldapDNCacheKey{schema: defaultLDAPSchema, dn: invalid}))
 }

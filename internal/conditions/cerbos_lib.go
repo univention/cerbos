@@ -280,6 +280,10 @@ func CacheFriendlyTimeDecorator() interpreter.InterpretableDecorator {
 }
 
 func cacheFriendlyTimeDecorate(in interpreter.Interpretable) (interpreter.Interpretable, error) {
+	if out, ok := customtypes.DecorateLDAPCall(in, CELGlobalsIdent); ok {
+		return out, nil
+	}
+
 	call, ok := in.(interpreter.InterpretableCall)
 	if !ok {
 		return in, nil
@@ -358,6 +362,10 @@ type timeDecorator struct {
 }
 
 func (t *timeDecorator) decorate(in interpreter.Interpretable) (interpreter.Interpretable, error) {
+	if out, ok := customtypes.DecorateLDAPCall(in, CELGlobalsIdent); ok {
+		return out, nil
+	}
+
 	call, ok := in.(interpreter.InterpretableCall)
 	if !ok {
 		return in, nil

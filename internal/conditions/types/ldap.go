@@ -28,10 +28,17 @@ const ldapDNCacheSize = 1024
 
 // ldapDNCache maps DN strings to their parsed form. Sharing the values is safe
 // because an LDAPHierarchy is never modified after newLDAPHierarchy.
-var ldapDNCache = cache.New[string, LDAPHierarchy]("ldap_dn", ldapDNCacheSize)
+var ldapDNCache = cache.New[ldapDNCacheKey, LDAPHierarchy]("ldap_dn", ldapDNCacheSize)
+
+// A DN normalizes differently under another schema.
+type ldapDNCacheKey struct {
+	schema *ldapSchema
+	dn     string
+}
 
 const (
 	ldapDNFn                = "ldapDN"
+	LDAPDNFn                = ldapDNFn
 	ldapDNTypeName          = "cerbos.lib.ldap"
 	ldapDNAncestorOf        = "ancestorOf"
 	ldapDNCommonAncestors   = "commonAncestors"
@@ -51,6 +58,7 @@ const (
 	ldapDNScopeHierarchy = "scopeHierarchy"
 
 	ldapDNListFn              = "ldapDNList"
+	LDAPDNListFn              = ldapDNListFn
 	ldapDNListTypeName        = "cerbos.lib.ldapList"
 	ldapDNListContains        = "hasDN"
 	ldapDNListAllIn           = "allIn"
@@ -312,12 +320,17 @@ var (
 )
 
 func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
+	return ldapDNWithSchema(defaultLDAPSchema, v)
+}
+
+func ldapDNWithSchema(s *ldapSchema, v ref.Val) ref.Val {
 	switch dv := v.(type) {
 	case LDAPHierarchy:
 		return dv
 
 	case types.String:
-		if h, ok := ldapDNCache.Get(string(dv)); ok {
+		key := ldapDNCacheKey{schema: s, dn: string(dv)}
+		if h, ok := ldapDNCache.Get(key); ok {
 			return h
 		}
 
@@ -331,12 +344,12 @@ func unaryLDAPDNFnImpl(v ref.Val) ref.Val {
 			return types.NewErr("invalid LDAP DN: empty DN")
 		}
 
-		h, err := newLDAPHierarchy(dn)
+		h, err := newLDAPHierarchy(s, dn)
 		if err != nil {
 			return types.NewErr("invalid LDAP DN: %v", err)
 		}
 
-		ldapDNCache.Set(string(dv), h)
+		ldapDNCache.Set(key, h)
 		return h
 
 	default:
@@ -355,17 +368,17 @@ type LDAPHierarchy struct {
 	rdnKeys [][]string
 }
 
-func newLDAPHierarchy(dn *ldapv3.DN) (LDAPHierarchy, error) {
+func newLDAPHierarchy(s *ldapSchema, dn *ldapv3.DN) (LDAPHierarchy, error) {
 	rdnKeys := make([][]string, len(dn.RDNs))
 	for i, rdn := range dn.RDNs {
 		keys := make([]string, len(rdn.Attributes))
 		for j, attr := range rdn.Attributes {
-			attrType := canonicalAttrType(attr.Type)
+			attrType := s.canonicalAttrType(attr.Type)
 			if !isAttrType(attrType) {
 				return LDAPHierarchy{}, fmt.Errorf("invalid attribute type %q", attr.Type)
 			}
 
-			value, err := prepareAttrValue(attrType, attr.Value)
+			value, err := s.prepareAttrValue(attrType, attr.Value)
 			if err != nil {
 				return LDAPHierarchy{}, fmt.Errorf("attribute %q: %w", attr.Type, err)
 			}
@@ -598,7 +611,10 @@ func rdnsEqual(a, b [][]string) bool {
 // LDAPDNList is a collection of parsed LDAP Distinguished Names for use in
 // set-oriented CEL policy expressions.
 type LDAPDNList struct {
-	dns []LDAPHierarchy
+	// schema is the one the list was built with. The methods parse their
+	// string arguments with it, because they cannot reach the globals.
+	schema *ldapSchema
+	dns    []LDAPHierarchy
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -667,6 +683,10 @@ func (l LDAPDNList) Receive(function, _ string, args []ref.Val) ref.Val {
 }
 
 func unaryLDAPDNListFnImpl(v ref.Val) ref.Val {
+	return ldapDNListWithSchema(defaultLDAPSchema, v)
+}
+
+func ldapDNListWithSchema(schema *ldapSchema, v ref.Val) ref.Val {
 	list, ok := v.(traits.Lister)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(v)
@@ -680,7 +700,7 @@ func unaryLDAPDNListFnImpl(v ref.Val) ref.Val {
 		if !ok {
 			return types.NewErr("ldapDNList: expected string elements, got '%s'", elem.Type())
 		}
-		h := unaryLDAPDNFnImpl(s)
+		h := ldapDNWithSchema(schema, s)
 		if types.IsError(h) {
 			return h // fail closed on invalid DN
 		}
@@ -691,12 +711,12 @@ func unaryLDAPDNListFnImpl(v ref.Val) ref.Val {
 		dns = append(dns, hv)
 	}
 
-	return LDAPDNList{dns: dns}
+	return LDAPDNList{schema: schema, dns: dns}
 }
 
 // parseDNStringList converts a CEL list of strings into []LDAPHierarchy.
 // Fails closed: any unparseable DN is propagated as an error.
-func parseDNStringList(v ref.Val) ([]LDAPHierarchy, ref.Val) {
+func parseDNStringList(schema *ldapSchema, v ref.Val) ([]LDAPHierarchy, ref.Val) {
 	list, ok := v.(traits.Lister)
 	if !ok {
 		return nil, types.MaybeNoSuchOverloadErr(v)
@@ -706,7 +726,7 @@ func parseDNStringList(v ref.Val) ([]LDAPHierarchy, ref.Val) {
 	var dns []LDAPHierarchy
 	for it.HasNext() == types.True {
 		elem := it.Next()
-		h := unaryLDAPDNFnImpl(elem)
+		h := ldapDNWithSchema(schema, elem)
 		if types.IsError(h) {
 			return nil, h
 		}
@@ -721,7 +741,7 @@ func parseDNStringList(v ref.Val) ([]LDAPHierarchy, ref.Val) {
 }
 
 func ldapDNListContainsFn(l LDAPDNList, v ref.Val) ref.Val {
-	h := unaryLDAPDNFnImpl(v)
+	h := ldapDNWithSchema(l.schema, v)
 	if types.IsError(h) {
 		return h
 	}
@@ -740,7 +760,7 @@ func ldapDNListContainsFn(l LDAPDNList, v ref.Val) ref.Val {
 }
 
 func ldapDNListAllInFn(l LDAPDNList, v ref.Val) ref.Val {
-	allowed, err := parseDNStringList(v)
+	allowed, err := parseDNStringList(l.schema, v)
 	if err != nil {
 		return err
 	}
@@ -759,7 +779,7 @@ func allDNsIn(dns, allowed []LDAPHierarchy) bool {
 }
 
 func ldapDNListAnyInFn(l LDAPDNList, v ref.Val) ref.Val {
-	allowed, err := parseDNStringList(v)
+	allowed, err := parseDNStringList(l.schema, v)
 	if err != nil {
 		return err
 	}
@@ -789,7 +809,7 @@ func ldapDNListIntersectsFn(l LDAPDNList, v ref.Val) ref.Val {
 
 // ldapDNListEqualsFn checks that the two sets contain the same DNs (order-independent).
 func ldapDNListEqualsFn(l LDAPDNList, v ref.Val) ref.Val {
-	other, err := parseDNStringList(v)
+	other, err := parseDNStringList(l.schema, v)
 	if err != nil {
 		return err
 	}
@@ -798,7 +818,7 @@ func ldapDNListEqualsFn(l LDAPDNList, v ref.Val) ref.Val {
 }
 
 func ldapDNListAnyDescendentOfFn(l LDAPDNList, v ref.Val) ref.Val {
-	base := unaryLDAPDNFnImpl(v)
+	base := ldapDNWithSchema(l.schema, v)
 	if types.IsError(base) {
 		return base
 	}
@@ -817,7 +837,7 @@ func ldapDNListAnyDescendentOfFn(l LDAPDNList, v ref.Val) ref.Val {
 }
 
 func ldapDNListAllDescendentOfFn(l LDAPDNList, v ref.Val) ref.Val {
-	base := unaryLDAPDNFnImpl(v)
+	base := ldapDNWithSchema(l.schema, v)
 	if types.IsError(base) {
 		return base
 	}

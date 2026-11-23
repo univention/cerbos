@@ -63,6 +63,9 @@ var attrTypeOIDs = map[string]string{
 	"univentionrecyclebinoriginaluniventionobjectidentifier": "1.3.6.1.4.1.10176.4221.1.10",
 }
 
+// attrTypeOIDs, caseExactAttrs and octetStringAttrs are the attribute types of
+// defaultLDAPSchema, used when the engine globals hold no ldapSchema.
+
 // caseExactAttrs lists the attribute types in attrTypeOIDs, by OID, whose
 // schema EQUALITY rule is caseExactMatch or caseExactIA5Match. Values of the
 // other types in attrTypeOIDs are compared ignoring case, the LDAP norm. Only
@@ -70,23 +73,6 @@ var attrTypeOIDs = map[string]string{
 // case compare equal.
 var caseExactAttrs = map[string]bool{
 	"1.3.6.1.4.1.10176.4204.1.1": true, // univentionAppID
-}
-
-var knownAttrOIDs = func() map[string]bool {
-	oids := make(map[string]bool, len(attrTypeOIDs))
-	for _, oid := range attrTypeOIDs {
-		oids[oid] = true
-	}
-
-	return oids
-}()
-
-// foldsCase reports whether values of attrType, as returned by
-// canonicalAttrType, are compared ignoring case. Without the schema the
-// EQUALITY rule of a type outside attrTypeOIDs is unknown, and ignoring case
-// for a case-exact type makes different entries compare equal.
-func foldsCase(attrType string) bool {
-	return knownAttrOIDs[attrType] && !caseExactAttrs[attrType]
 }
 
 // octetStringAttrs lists the attribute types, as returned by canonicalAttrType,
@@ -123,15 +109,6 @@ var mapToNothing = &unicode.RangeTable{
 		{Lo: 0xE0020, Hi: 0xE007F, Stride: 1},
 	},
 	LatinOffset: 5,
-}
-
-func canonicalAttrType(attrType string) string {
-	t := strings.TrimPrefix(strings.ToLower(attrType), "oid.")
-	if oid, ok := attrTypeOIDs[t]; ok {
-		return oid
-	}
-
-	return t
 }
 
 // isAttrType reports whether t, as returned by canonicalAttrType, is a name or
@@ -171,20 +148,6 @@ func isAttrType(t string) bool {
 	return true
 }
 
-// prepareAttrValue applies the LDAP string preparation of RFC 4518 to an
-// attribute value, so that values the directory considers equal compare equal.
-func prepareAttrValue(attrType, value string) (string, error) {
-	if octetStringAttrs[attrType] {
-		return value, nil
-	}
-
-	if s, ok := prepareASCIIAttrValue(value, foldsCase(attrType)); ok {
-		return s, nil
-	}
-
-	return prepareUnicodeAttrValue(attrType, value)
-}
-
 // prepareASCIIAttrValue gives the result of prepareUnicodeAttrValue for values
 // that are pure ASCII, where NFKC changes nothing, case folding is lowercasing,
 // and no character is prohibited. It reports false for any other value.
@@ -214,7 +177,7 @@ func prepareASCIIAttrValue(value string, foldCase bool) (string, bool) {
 	return string(b), true
 }
 
-func prepareUnicodeAttrValue(attrType, value string) (string, error) {
+func prepareUnicodeAttrValue(value string, foldCase bool) (string, error) {
 	var b strings.Builder
 	for _, r := range value {
 		switch {
@@ -227,7 +190,7 @@ func prepareUnicodeAttrValue(attrType, value string) (string, error) {
 	}
 
 	s := b.String()
-	if !foldsCase(attrType) {
+	if !foldCase {
 		s = norm.NFKC.String(s)
 	} else {
 		s = norm.NFKC.String(cases.Fold().String(s))

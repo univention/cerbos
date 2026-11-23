@@ -59,6 +59,9 @@ var (
 	unoptimizableFunctions = map[string]struct{}{
 		nowFn:       {},
 		timeSinceFn: {},
+		// Folding would use the built-in LDAP schema, not the one in the globals.
+		types.LDAPDNFn:     {},
+		types.LDAPDNListFn: {},
 	}
 )
 

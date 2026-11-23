@@ -32,7 +32,7 @@ func TestPrepareASCIIAttrValueMatchesUnicodePath(t *testing.T) {
 		for _, v := range values {
 			want, err := prepareUnicodeAttrValue(attrType, v)
 			require.NoError(t, err)
-			have, ok := prepareASCIIAttrValue(v, !caseExactAttrs[attrType])
+			have, ok := prepareASCIIAttrValue(v, foldsCase(attrType))
 			require.True(t, ok)
 			require.Equal(t, want, have, "attrType=%s value=%q", attrType, v)
 		}

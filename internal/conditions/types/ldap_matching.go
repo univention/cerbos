@@ -16,7 +16,8 @@ import (
 // attrTypeOIDs maps the lowercase names of a subset of the attribute types
 // defined in RFC 4519 and RFC 4524, and of the other attribute types used in
 // RDNs on UCS, to their OIDs, so that cn, commonName and 2.5.4.3 compare equal.
-// A type that is not listed compares by its lowercase name.
+// A type that is not listed compares by its lowercase name, and its values
+// keep their case.
 var attrTypeOIDs = map[string]string{
 	"cn":                     "2.5.4.3",
 	"commonname":             "2.5.4.3",
@@ -62,13 +63,30 @@ var attrTypeOIDs = map[string]string{
 	"univentionrecyclebinoriginaluniventionobjectidentifier": "1.3.6.1.4.1.10176.4221.1.10",
 }
 
-// caseExactAttrs lists the attribute types, as returned by canonicalAttrType,
-// whose schema EQUALITY rule is caseExactMatch or caseExactIA5Match. Values of
-// all other types are compared ignoring case, the LDAP norm. Only types used in
-// RDNs matter: a missing entry makes entries that differ only in case compare
-// equal. Add the type's OID to attrTypeOIDs too, so both spellings match.
+// caseExactAttrs lists the attribute types in attrTypeOIDs, by OID, whose
+// schema EQUALITY rule is caseExactMatch or caseExactIA5Match. Values of the
+// other types in attrTypeOIDs are compared ignoring case, the LDAP norm. Only
+// types used in RDNs matter: a missing entry makes entries that differ only in
+// case compare equal.
 var caseExactAttrs = map[string]bool{
 	"1.3.6.1.4.1.10176.4204.1.1": true, // univentionAppID
+}
+
+var knownAttrOIDs = func() map[string]bool {
+	oids := make(map[string]bool, len(attrTypeOIDs))
+	for _, oid := range attrTypeOIDs {
+		oids[oid] = true
+	}
+
+	return oids
+}()
+
+// foldsCase reports whether values of attrType, as returned by
+// canonicalAttrType, are compared ignoring case. Without the schema the
+// EQUALITY rule of a type outside attrTypeOIDs is unknown, and ignoring case
+// for a case-exact type makes different entries compare equal.
+func foldsCase(attrType string) bool {
+	return knownAttrOIDs[attrType] && !caseExactAttrs[attrType]
 }
 
 // octetStringAttrs lists the attribute types, as returned by canonicalAttrType,
@@ -160,7 +178,7 @@ func prepareAttrValue(attrType, value string) (string, error) {
 		return value, nil
 	}
 
-	if s, ok := prepareASCIIAttrValue(value, !caseExactAttrs[attrType]); ok {
+	if s, ok := prepareASCIIAttrValue(value, foldsCase(attrType)); ok {
 		return s, nil
 	}
 
@@ -209,7 +227,7 @@ func prepareUnicodeAttrValue(attrType, value string) (string, error) {
 	}
 
 	s := b.String()
-	if caseExactAttrs[attrType] {
+	if !foldsCase(attrType) {
 		s = norm.NFKC.String(s)
 	} else {
 		s = norm.NFKC.String(cases.Fold().String(s))

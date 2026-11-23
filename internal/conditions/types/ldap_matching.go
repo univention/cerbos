@@ -14,8 +14,8 @@ import (
 )
 
 // attrTypeOIDs maps the lowercase names of a subset of the attribute types
-// defined in RFC 4519 and RFC 4524, and of the other attribute types used in
-// RDNs on UCS, to their OIDs, so that cn, commonName and 2.5.4.3 compare equal.
+// defined in RFC 4519 and RFC 4524 to their OIDs, so that cn, commonName and
+// 2.5.4.3 compare equal.
 // A type that is not listed compares by its lowercase name, and its values
 // keep their case.
 var attrTypeOIDs = map[string]string{
@@ -51,16 +51,6 @@ var attrTypeOIDs = map[string]string{
 	"rfc822mailbox":          "0.9.2342.19200300.100.1.3",
 	"dc":                     "0.9.2342.19200300.100.1.25",
 	"domaincomponent":        "0.9.2342.19200300.100.1.25",
-	"krb5principalname":      "1.3.6.1.4.1.5322.10.1.1",
-	"relativedomainname":     "1.3.6.1.4.1.2428.20.0.3",
-	"reqsession":             "1.3.6.1.4.1.4203.666.11.5.1.5",
-	"sambadomainname":        "1.3.6.1.4.1.7165.2.1.38",
-	"zonename":               "1.3.6.1.4.1.2428.20.0.2",
-
-	// Univention-specific attribute types.
-	"univentionappid":                                        "1.3.6.1.4.1.10176.4204.1.1",
-	"univentionobjectidentifier":                             "1.3.6.1.4.1.10176.1003.3",
-	"univentionrecyclebinoriginaluniventionobjectidentifier": "1.3.6.1.4.1.10176.4221.1.10",
 }
 
 // attrTypeOIDs, caseExactAttrs and octetStringAttrs are the attribute types of
@@ -71,16 +61,12 @@ var attrTypeOIDs = map[string]string{
 // other types in attrTypeOIDs are compared ignoring case, the LDAP norm. Only
 // types used in RDNs matter: a missing entry makes entries that differ only in
 // case compare equal.
-var caseExactAttrs = map[string]bool{
-	"1.3.6.1.4.1.10176.4204.1.1": true, // univentionAppID
-}
+var caseExactAttrs = map[string]bool{}
 
 // octetStringAttrs lists the attribute types, as returned by canonicalAttrType,
 // whose schema EQUALITY rule is octetStringMatch. Their values are compared
 // byte for byte, without the RFC 4518 preparation.
-var octetStringAttrs = map[string]bool{
-	"1.3.6.1.4.1.5322.10.1.1": true, // krb5PrincipalName
-}
+var octetStringAttrs = map[string]bool{}
 
 // mapToNothing holds the code points that RFC 4518 section 2.2 removes.
 var mapToNothing = &unicode.RangeTable{

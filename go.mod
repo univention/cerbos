@@ -37,6 +37,7 @@ require (
 	github.com/go-andiamo/splitter v1.2.5
 	github.com/go-cmd/cmd v1.4.4
 	github.com/go-git/go-git/v6 v6.0.0-beta.1
+	github.com/go-ldap/ldap/v3 v3.4.15
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-sql-driver/mysql v1.10.2
 	github.com/gobwas/glob v1.1.0
@@ -138,6 +139,7 @@ require (
 	connectrpc.com/otelconnect v0.12.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/Azure/go-ntlmssp v0.1.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.62.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.62.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -183,6 +185,7 @@ require (
 	github.com/failsafe-go/failsafe-go v0.9.8 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
+	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-git/go-billy/v6 v6.0.0-beta.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
